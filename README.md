@@ -22,6 +22,10 @@ Acesse <http://127.0.0.1:4173>. Encerre com `Ctrl+C` no terminal do servidor. O 
 
 A aprovação registra que o arquivo foi conferido. Ela não cria nem modifica um registro vacinal oficial.
 
+## Arquitetura
+
+A stack atual, o modelo de dados, as rotas da API e os componentes que serão reaproveitados na interface definitiva estão descritos em [ARQUITETURA.md](ARQUITETURA.md). A interface é temporária; o contrato da API e as regras do fluxo devem ser preservados durante a evolução.
+
 ## URLs da API
 
 - `GET /api/health` — estado do serviço.
