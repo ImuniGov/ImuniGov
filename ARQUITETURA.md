@@ -25,6 +25,10 @@ Essa é a stack alvo do produto, não uma descrição do código que já está i
 
 ## 3. Visão geral das camadas
 
+![Diagrama visual da arquitetura final do ImuniGuia](docs/arquitetura-imuniguia.svg)
+
+O desenho acima mostra os componentes e como os dados passam pela interface, API, banco, armazenamento privado e processamento assíncrono.
+
 ```mermaid
 flowchart LR
   U[Família / UBS / ACS] --> WEB[SPA React + TypeScript]
@@ -129,6 +133,8 @@ Os endpoints adicionais acima descrevem o destino arquitetural; não afirmam que
 ## 6. Modelo de dados esperado
 
 O diagrama abaixo é conceitual. Chaves, tipos, índices e regras de retenção devem ser detalhados nas migrações do PostgreSQL.
+
+![Diagrama visual das entidades e relações do ImuniGuia](docs/modelo-dados.svg)
 
 ```mermaid
 erDiagram
