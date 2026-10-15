@@ -206,6 +206,16 @@ class Handler(BaseHTTPRequestHandler):
             if path in ("/styles.css", "/app.js"):
                 file = path[1:]
                 return self.static(file, "text/css; charset=utf-8" if file.endswith(".css") else "text/javascript; charset=utf-8")
+            if path in ("/docs", "/docs/"):
+                return self.static_docs("docs/swagger.html", "text/html; charset=utf-8")
+            if path == "/docs/openapi.json":
+                return self.static_docs("docs/openapi.json", "application/json; charset=utf-8")
+            if path == "/docs/swagger-ui-bundle.js":
+                return self.static_docs("docs/swagger-ui-bundle.js", "text/javascript; charset=utf-8")
+            if path == "/docs/swagger-ui.css":
+                return self.static_docs("docs/swagger-ui.css", "text/css; charset=utf-8")
+            if path == "/docs/swagger-init.js":
+                return self.static_docs("docs/swagger-init.js", "text/javascript; charset=utf-8")
             if path == "/api/health":
                 return self.json_response(200, {"ok": True, "service": "ImuniGuia upload-and-review"})
             if path == "/api/dependents":
@@ -383,11 +393,31 @@ class Handler(BaseHTTPRequestHandler):
 
     def static(self, name, content_type):
         file = (ROOT / name).resolve()
-        if file.parent != ROOT or not file.is_file():
+        if not str(file).startswith(str(ROOT)) or not file.is_file():
             return self.json_response(404, {"error": "Arquivo não encontrado."})
         data = file.read_bytes()
         self.send_response(200)
         self.headers_common(content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def static_docs(self, name, content_type):
+        """Serve documentation files with a relaxed CSP that allows Swagger UI CDN assets."""
+        file = (ROOT / name).resolve()
+        if not str(file).startswith(str(ROOT)) or not file.is_file():
+            return self.json_response(404, {"error": "Arquivo não encontrado."})
+        data = file.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "font-src 'self'; "
+            "frame-ancestors 'none'")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

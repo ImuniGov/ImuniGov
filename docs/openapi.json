@@ -1,0 +1,650 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ImuniGuia API",
+    "description": "API do módulo de envio e revisão de documentos de vacinação do ImuniGuia.\n\nO servidor armazena dados em SQLite e arquivos em disco local (`./data`).\nTodas as rotas `/api/*` verificam o cabeçalho `Origin` para proteção CSRF.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "ImuniGov"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:4173",
+      "description": "Servidor local de desenvolvimento"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Verificação de saúde do serviço"
+    },
+    {
+      "name": "Dependentes",
+      "description": "Gerenciamento de dependentes (pessoas vacinadas)"
+    },
+    {
+      "name": "Documentos",
+      "description": "Envio, consulta e revisão de documentos de vacinação"
+    },
+    {
+      "name": "Auditoria",
+      "description": "Histórico de eventos de auditoria por documento"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Retorna o status de saúde do serviço.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Serviço operacional",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "service": { "type": "string", "example": "ImuniGuia upload-and-review" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dependents": {
+      "get": {
+        "tags": ["Dependentes"],
+        "summary": "Listar dependentes",
+        "description": "Retorna todos os dependentes cadastrados com a contagem de documentos associados, ordenados por nome.",
+        "operationId": "listDependents",
+        "responses": {
+          "200": {
+            "description": "Lista de dependentes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Dependent" }
+                    }
+                  }
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "name": "Maria Silva",
+                      "created_at": "2026-01-15T10:30:00+00:00",
+                      "document_count": 3
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "post": {
+        "tags": ["Dependentes"],
+        "summary": "Cadastrar dependente",
+        "description": "Cria um novo dependente (pessoa vacinada). O nome é obrigatório e limitado a 80 caracteres.",
+        "operationId": "createDependent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80,
+                    "description": "Nome do dependente",
+                    "example": "João Pedro"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dependente criado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": { "$ref": "#/components/schemas/Dependent" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/dependents/{dependentId}": {
+      "delete": {
+        "tags": ["Dependentes"],
+        "summary": "Remover dependente",
+        "description": "Remove um dependente pelo ID. Falha se houver documentos associados (HTTP 409).",
+        "operationId": "deleteDependent",
+        "parameters": [
+          {
+            "name": "dependentId",
+            "in": "path",
+            "required": true,
+            "description": "UUID do dependente",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Dependente removido com sucesso" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "Dependente não encontrado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "Dependente não encontrado." }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflito — dependente possui documentos associados",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "Não é possível remover um dependente que possui documentos associados." }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/documents": {
+      "get": {
+        "tags": ["Documentos"],
+        "summary": "Listar documentos",
+        "description": "Retorna todos os documentos, opcionalmente filtrados por status. Ordenados por data de criação (mais recente primeiro).",
+        "operationId": "listDocuments",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filtrar por status do documento",
+            "schema": {
+              "type": "string",
+              "enum": ["pendente", "aprovado", "rejeitado"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de documentos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Document" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "post": {
+        "tags": ["Documentos"],
+        "summary": "Enviar documento",
+        "description": "Envia um novo documento de vacinação. Aceita arquivos JPG, PNG, WEBP ou PDF com até 10 MB. O conteúdo do arquivo é validado por assinatura de bytes (magic bytes).",
+        "operationId": "createDocument",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["dependentId", "vaccine", "file"],
+                "properties": {
+                  "dependentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "UUID do dependente associado"
+                  },
+                  "vaccine": {
+                    "type": "string",
+                    "maxLength": 80,
+                    "description": "Tipo de registro / vacina",
+                    "example": "BCG"
+                  },
+                  "doseDate": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Data da dose (YYYY-MM-DD)",
+                    "example": "2026-03-15"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "Observação da família (opcional)"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Arquivo da caderneta (JPG, PNG, WEBP ou PDF, máx. 10 MB)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Documento enviado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": { "$ref": "#/components/schemas/Document" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "Dependente não encontrado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "Dependente não encontrado. Cadastre o dependente antes do envio." }
+              }
+            }
+          },
+          "413": {
+            "description": "Arquivo excede o limite de 10 MB",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "O arquivo excede o limite de 10 MB." }
+              }
+            }
+          },
+          "415": {
+            "description": "Formato de arquivo não suportado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "O formato real do arquivo não corresponde a JPG, PNG, WEBP ou PDF." }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/documents/{documentId}": {
+      "get": {
+        "tags": ["Documentos"],
+        "summary": "Consultar documento",
+        "description": "Retorna os detalhes de um documento específico pelo ID.",
+        "operationId": "getDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "description": "UUID do documento",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhes do documento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": { "$ref": "#/components/schemas/Document" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Documento não encontrado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "Documento não encontrado." }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/documents/{documentId}/file": {
+      "get": {
+        "tags": ["Documentos"],
+        "summary": "Baixar arquivo do documento",
+        "description": "Retorna o arquivo binário (imagem ou PDF) do documento. O cabeçalho `Content-Disposition` indica o nome original do arquivo.",
+        "operationId": "getDocumentFile",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "description": "UUID do documento",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Arquivo do documento",
+            "content": {
+              "image/jpeg": {
+                "schema": { "type": "string", "format": "binary" }
+              },
+              "image/png": {
+                "schema": { "type": "string", "format": "binary" }
+              },
+              "image/webp": {
+                "schema": { "type": "string", "format": "binary" }
+              },
+              "application/pdf": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "404": {
+            "description": "Documento ou arquivo não encontrado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/documents/{documentId}/decision": {
+      "post": {
+        "tags": ["Documentos"],
+        "summary": "Revisar documento (aprovar/rejeitar)",
+        "description": "Registra a decisão de revisão de um documento pendente. Documentos já revisados retornam HTTP 409. Se a decisão for `rejeitado`, o campo `note` é obrigatório.",
+        "operationId": "decideDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "description": "UUID do documento",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["decision", "reviewer"],
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": ["aprovado", "rejeitado"],
+                    "description": "Decisão da revisão"
+                  },
+                  "reviewer": {
+                    "type": "string",
+                    "maxLength": 80,
+                    "description": "Nome do revisor",
+                    "example": "Dr. Ana Costa"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "description": "Justificativa (obrigatória para rejeição; se aprovado sem nota, será preenchida automaticamente)",
+                    "example": "Documento conferido pela equipe."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decisão registrada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": { "$ref": "#/components/schemas/Document" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "Documento não encontrado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Documento já revisado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "Este documento já recebeu uma decisão." }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/audit": {
+      "get": {
+        "tags": ["Auditoria"],
+        "summary": "Consultar histórico de auditoria",
+        "description": "Retorna os eventos de auditoria de um documento específico, em ordem cronológica.",
+        "operationId": "getAuditEvents",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "query",
+            "required": true,
+            "description": "UUID do documento",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de eventos de auditoria",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/AuditEvent" }
+                    }
+                  }
+                },
+                "example": {
+                  "items": [
+                    {
+                      "event": "arquivo_enviado",
+                      "details": "Documento recebido e aguardando análise.",
+                      "created_at": "2026-01-15T10:30:00+00:00"
+                    },
+                    {
+                      "event": "aprovado",
+                      "details": "Dr. Ana Costa: Documento conferido pela equipe.",
+                      "created_at": "2026-01-16T14:00:00+00:00"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parâmetro documentId ausente",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "Informe documentId para consultar o histórico." }
+              }
+            }
+          },
+          "404": {
+            "description": "Documento não encontrado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Dependent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "description": "Identificador único" },
+          "name": { "type": "string", "description": "Nome do dependente" },
+          "created_at": { "type": "string", "format": "date-time", "description": "Data de cadastro (UTC ISO 8601)" },
+          "document_count": { "type": "integer", "description": "Quantidade de documentos associados" }
+        },
+        "example": {
+          "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+          "name": "Maria Silva",
+          "created_at": "2026-01-15T10:30:00+00:00",
+          "document_count": 3
+        }
+      },
+      "Document": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "description": "Identificador único do documento" },
+          "dependentId": { "type": "string", "format": "uuid", "description": "ID do dependente associado" },
+          "dependent": { "type": "string", "description": "Nome do dependente" },
+          "fileName": { "type": "string", "description": "Nome original do arquivo enviado" },
+          "contentType": { "type": "string", "description": "Tipo MIME do arquivo", "enum": ["image/jpeg", "image/png", "image/webp", "application/pdf"] },
+          "size": { "type": "integer", "description": "Tamanho em bytes" },
+          "sha256": { "type": "string", "description": "Hash SHA-256 do arquivo" },
+          "vaccine": { "type": "string", "description": "Tipo de registro / vacina" },
+          "doseDate": { "type": "string", "format": "date", "nullable": true, "description": "Data da dose" },
+          "familyNote": { "type": "string", "description": "Observação da família" },
+          "status": { "type": "string", "enum": ["pendente", "aprovado", "rejeitado"], "description": "Status de revisão" },
+          "reviewNote": { "type": "string", "description": "Nota do revisor" },
+          "createdAt": { "type": "string", "format": "date-time", "description": "Data de envio (UTC ISO 8601)" },
+          "reviewedAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Data da revisão" },
+          "reviewer": { "type": "string", "description": "Nome do revisor" },
+          "fileUrl": { "type": "string", "description": "URL para download do arquivo" }
+        },
+        "example": {
+          "id": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+          "dependentId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+          "dependent": "Maria Silva",
+          "fileName": "caderneta_maria.jpg",
+          "contentType": "image/jpeg",
+          "size": 245760,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "vaccine": "BCG",
+          "doseDate": "2026-03-15",
+          "familyNote": "Primeira dose aplicada na UBS Central.",
+          "status": "pendente",
+          "reviewNote": "",
+          "createdAt": "2026-03-16T08:00:00+00:00",
+          "reviewedAt": null,
+          "reviewer": "",
+          "fileUrl": "/api/documents/f1e2d3c4-b5a6-7890-abcd-ef1234567890/file"
+        }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "properties": {
+          "event": { "type": "string", "description": "Tipo do evento", "enum": ["arquivo_enviado", "aprovado", "rejeitado"] },
+          "details": { "type": "string", "description": "Detalhes do evento" },
+          "created_at": { "type": "string", "format": "date-time", "description": "Data/hora do evento (UTC ISO 8601)" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "description": "Mensagem de erro" }
+        },
+        "example": { "error": "Mensagem descritiva do erro." }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Requisição inválida — dados ausentes ou malformados",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Envie um JSON válido." }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Origem da requisição não permitida (CSRF)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Origem da requisição não permitida." }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Erro interno do servidor",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Erro interno ao consultar os dados." }
+          }
+        }
+      }
+    }
+  }
+}
