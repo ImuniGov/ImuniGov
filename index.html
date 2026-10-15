@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f7f5">
+  <meta name="description" content="Envio e revisão de arquivos de cadernetas do ImuniGuia.">
+  <title>ImuniGuia · Cadernetas</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#inicio"><span class="brand-mark">✳</span><span>imuni<span>guia</span><small>ENVIO E REVISÃO DE CADERNETAS</small></span></a>
+    <nav class="topnav" aria-label="Navegação"><a href="#inicio">Visão geral</a><a href="#dependentes">Dependentes</a><a href="#enviar">Enviar arquivo</a><a href="#documentos">Documentos</a></nav>
+    <div class="server-status"><i></i> Aplicação conectada</div>
+  </header>
+  <main class="container" id="inicio">
+    <section class="intro"><div><div class="eyebrow">MÓDULO DE DOCUMENTOS</div><h1>Envio e conferência</h1><p>Acompanhe cadernetas recebidas e registre a decisão da equipe.</p></div><div class="local-badge"><span>●</span> Acesso local sem autenticação</div></section>
+    <div class="notice"><span class="notice-icon">i</span><p>Este ambiente ainda não tem autenticação. A identidade do revisor é informada manualmente. Não publique o serviço na internet nem envie documentos reais até adicionar autenticação e proteção de acesso.</p></div>
+    <section class="stats-grid" aria-label="Resumo dos documentos"><article class="stat-card"><span>Aguardando análise</span><strong id="count-pendente">0</strong><small>Documentos na fila</small></article><article class="stat-card"><span>Aprovados</span><strong id="count-aprovado">0</strong><small>Conferência registrada</small></article><article class="stat-card"><span>Devolvidos para ajuste</span><strong id="count-rejeitado">0</strong><small>Com justificativa</small></article><article class="stat-card"><span>Total de arquivos</span><strong id="count-total">0</strong><small>Armazenados no servidor local</small></article></section>
+
+    <div class="workspace-grid">
+      <section class="panel" id="dependentes"><div class="panel-heading"><div><span class="step">01</span><div><h2>Dependentes</h2><p>Cadastre a pessoa para vincular o documento recebido.</p></div></div></div>
+        <form id="dependent-form" class="inline-form"><label class="sr-only" for="dependent-name">Nome do dependente</label><input id="dependent-name" name="name" maxlength="80" placeholder="Nome do dependente" required><button class="button button-secondary" type="submit">Adicionar</button></form>
+        <div id="dependent-list" class="dependent-list"><p class="muted small">Carregando dependentes…</p></div>
+      </section>
+
+      <section class="panel upload-panel" id="enviar"><div class="panel-heading"><div><span class="step">02</span><div><h2>Enviar caderneta</h2><p>O arquivo entra na fila com status “Aguardando análise”.</p></div></div></div>
+        <form id="upload-form"><label class="label" for="dependent-select">Dependente <b>*</b></label><select id="dependent-select" required><option value="">Cadastre ou selecione um dependente</option></select><div class="form-two"><div><label class="label" for="vaccine">Vacina ou registro <b>*</b></label><select id="vaccine" required><option value="">Selecione</option><option>BCG</option><option>Hepatite B</option><option>Pentavalente</option><option>Poliomielite</option><option>Tríplice viral</option><option>Febre amarela</option><option>Outro registro</option></select></div><div><label class="label" for="dose-date">Data registrada</label><input id="dose-date" type="date"></div></div><label class="label" for="family-note">Observação <span class="optional">(opcional)</span></label><textarea id="family-note" rows="2" maxlength="500" placeholder="Informação que ajude na conferência"></textarea>
+          <label class="label">Arquivo <b>*</b></label><input id="file-input" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" hidden><div class="dropzone" id="dropzone" tabindex="0" role="button"><span class="upload-icon">↑</span><strong>Arraste o arquivo ou <button type="button" id="browse-file" class="link-button">selecione no dispositivo</button></strong><small>JPG, PNG, WEBP ou PDF · até 10 MB</small></div><div class="selected-file hidden" id="selected-file"></div><p class="error hidden" id="upload-error" role="alert"></p><button class="button button-primary full-button" type="submit">Enviar para análise <span>→</span></button>
+        </form>
+      </section>
+    </div>
+
+    <section class="panel documents-panel" id="documentos"><div class="panel-heading docs-heading"><div><span class="step">03</span><div><h2>Fila de documentos</h2><p>Abra um arquivo pendente para conferir e registrar a decisão.</p></div></div><label class="search"><span>⌕</span><input type="search" id="search" placeholder="Buscar por nome"></label></div><div class="filters" aria-label="Filtrar documentos"><button class="filter active" data-filter="todos">Todos <span id="all-count">0</span></button><button class="filter" data-filter="pendente">Aguardando análise <span id="pending-count">0</span></button><button class="filter" data-filter="aprovado">Aprovados</button><button class="filter" data-filter="rejeitado">Devolvidos</button></div><div class="table-wrap"><table><thead><tr><th>ARQUIVO</th><th>DEPENDENTE</th><th>REGISTRO</th><th>RECEBIDO</th><th>STATUS</th><th></th></tr></thead><tbody id="document-rows"></tbody></table><div class="empty hidden" id="empty">Nenhum documento corresponde a este filtro.</div></div></section>
+    <div class="footnote"><span>ⓘ</span> Uma aprovação registra apenas a conferência do arquivo. Ela não lança nem modifica doses em um prontuário vacinal.</div>
+  </main>
+
+  <dialog id="review-dialog"><form method="dialog" class="dialog-shell"><div class="dialog-head"><div><div class="eyebrow">CONFERÊNCIA</div><h2 id="review-title">Revisar documento</h2></div><button class="close-button" aria-label="Fechar">×</button></div><div id="review-details"></div><div id="decision-fields" class="decision-fields"><label class="label" for="reviewer">Nome de quem está revisando <b>*</b></label><input id="reviewer" maxlength="80" placeholder="Nome do profissional"><div id="reject-note-wrap" class="hidden"><label class="label" for="review-note">Motivo e orientação para novo envio <b>*</b></label><textarea id="review-note" rows="3" maxlength="300" placeholder="Explique o que precisa ser corrigido."></textarea></div><p id="decision-error" class="error hidden" role="alert"></p><div class="dialog-actions"><button type="button" class="button button-secondary" id="reject-button">Devolver para ajuste</button><button type="button" class="button button-primary" id="approve-button">Aprovar arquivo</button></div></div><div id="read-only-actions" class="hidden dialog-actions"><button class="button button-secondary">Fechar</button></div><p class="dialog-note">A decisão fica registrada no banco local junto com a data e o nome informado.</p></form></dialog>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <footer class="footer"><span>ImuniGuia · Módulo de envio e conferência</span><span>Arquivos privados armazenados no servidor local.</span></footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>
