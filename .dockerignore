@@ -1,0 +1,10 @@
+.git
+.gitignore
+data
+__pycache__
+*.py[cod]
+*.sqlite3
+*.log
+README.md
+ARQUITETURA.md
+INICIAR_IMUNIGUIA.bat
