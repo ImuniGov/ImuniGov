@@ -1,8 +1,54 @@
 # ImuniGuia — envio e revisão de cadernetas
 
-Aplicação local para receber cadernetas de vacinação e registrar a aprovação ou devolução de cada arquivo. O acesso é separado por atividade, sem login neste protótipo local.
+Aplicação local para receber cadernetas de vacinação e registrar a aprovação ou devolução de cada arquivo. O acesso é separado por atividade, sem login neste protótipo local. A forma recomendada de execução é com Docker.
 
-## Executar no Windows
+## Dependências
+
+### Execução recomendada: container
+
+- [Docker Engine](https://docs.docker.com/engine/install/) 24 ou superior;
+- Docker Compose v2 (`docker compose`).
+
+Confira a instalação:
+
+```bash
+docker --version
+docker compose version
+```
+
+Não é necessário instalar Python, bibliotecas ou banco de dados na máquina: a imagem usa Python 3.12 e SQLite já incluído na biblioteca padrão.
+
+### Execução sem container
+
+- Python 3.10 ou superior.
+
+Não há dependências de pacotes externos; a aplicação usa apenas a biblioteca padrão do Python.
+
+## Início rápido com Docker
+
+Na raiz do projeto, execute:
+
+```bash
+docker compose up --build -d
+```
+
+Confira se está em execução:
+
+```bash
+docker compose ps
+curl http://127.0.0.1:4173/api/health
+```
+
+Saída esperada da verificação: `{"ok": true, "service": "ImuniGuia upload-and-review"}`.
+
+## Endereços locais
+
+- <http://127.0.0.1:4173/> — escolha do tipo de acesso.
+- <http://127.0.0.1:4173/paciente> — cadastro da pessoa e envio de foto/PDF da caderneta.
+- <http://127.0.0.1:4173/agente-saude> — fila de análise, aprovação ou devolução com orientação.
+- <http://127.0.0.1:4173/api/health> — verificação técnica do serviço.
+
+## Executar sem Docker
 
 Com Python 3.10 ou superior instalado, dê dois cliques em `INICIAR_IMUNIGUIA.bat`. Ou abra um terminal nesta pasta e execute:
 
@@ -10,21 +56,50 @@ Com Python 3.10 ou superior instalado, dê dois cliques em `INICIAR_IMUNIGUIA.ba
 python server.py
 ```
 
-Acesse uma das páginas abaixo. Encerre com `Ctrl+C` no terminal do servidor. O aplicativo usa somente bibliotecas incluídas no Python, sem instalação de pacotes.
-
-- <http://127.0.0.1:4173/paciente> — cadastro da pessoa e envio de foto/PDF da caderneta.
-- <http://127.0.0.1:4173/agente-saude> — fila de análise, aprovação ou devolução com orientação.
-- <http://127.0.0.1:4173/> — página para escolher o tipo de acesso.
-
-## Executar com container
-
-Com Docker e Docker Compose instalados, execute:
+Em Windows, dê dois cliques em `INICIAR_IMUNIGUIA.bat`; em qualquer sistema, também é possível abrir um terminal na pasta do projeto e executar:
 
 ```bash
+python server.py
+```
+
+Encerre com `Ctrl+C` no terminal do servidor.
+
+## Operação do container
+
+Os documentos e o banco SQLite ficam no volume nomeado `imuniguia-data`, portanto continuam preservados ao recriar o container.
+
+```bash
+# Acompanhar mensagens do serviço
+docker compose logs -f
+
+# Parar e remover o container, preservando os dados
+docker compose down
+
+# Parar e remover também o banco e arquivos enviados (ação irreversível)
+docker compose down --volumes
+
+# Recriar depois de alterações no código
 docker compose up --build -d
 ```
 
-O serviço ficará disponível nas mesmas URLs locais. Os documentos e o banco SQLite ficam no volume nomeado `imuniguia-data`, portanto continuam preservados ao recriar o container. Para encerrar, use `docker compose down`; para remover também os dados locais, use `docker compose down --volumes`.
+## Configuração
+
+As variáveis abaixo já são definidas em `compose.yaml`; só precisam ser alteradas se houver necessidade específica:
+
+| Variável | Padrão | Finalidade |
+| --- | --- | --- |
+| `IMUNIGUI_HOST` | `0.0.0.0` no container | Endereço em que o servidor escuta. |
+| `IMUNIGUI_PORT` | `4173` | Porta local do serviço. |
+| `IMUNIGUI_DATA_DIR` | `/data` no container | Local do banco SQLite e dos arquivos enviados. |
+
+## Solução de problemas
+
+| Situação | Como resolver |
+| --- | --- |
+| `ERR_CONNECTION_REFUSED` | Execute `docker compose ps`; se o serviço não estiver como `Up`, rode `docker compose up --build -d` e consulte `docker compose logs`. |
+| A porta 4173 já está em uso | Pare o processo que usa a porta ou altere o lado esquerdo de `4173:4173` em `compose.yaml`, por exemplo para `4174:4173`. |
+| Mudanças não aparecem | Reconstrua com `docker compose up --build -d` e atualize a página. |
+| É preciso recomeçar sem dados de demonstração | Execute `docker compose down --volumes`; isso apaga o banco e todos os arquivos enviados. |
 
 ## Fluxo funcional
 
