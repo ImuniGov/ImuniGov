@@ -201,9 +201,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             path = unquote(urlparse(self.path).path)
-            if path in ("/", "/index.html"):
+            if path == "/":
+                return self.static("home.html", "text/html; charset=utf-8")
+            if path in ("/agente-saude", "/agente-saude/", "/index.html"):
                 return self.static("index.html", "text/html; charset=utf-8")
-            if path in ("/styles.css", "/app.js"):
+            if path in ("/paciente", "/paciente/"):
+                return self.static("patient.html", "text/html; charset=utf-8")
+            if path in ("/styles.css", "/roles.css", "/app.js", "/patient.js"):
                 file = path[1:]
                 return self.static(file, "text/css; charset=utf-8" if file.endswith(".css") else "text/javascript; charset=utf-8")
             if path in ("/docs", "/docs/"):

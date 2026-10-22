@@ -1,6 +1,6 @@
 # ImuniGuia — envio e revisão de cadernetas
 
-Aplicação executável para cadastrar dependentes, receber cadernetas de vacinação e registrar a aprovação ou devolução de cada arquivo. O fluxo é operado em uma única página; as operações usam URLs de API próprias.
+Aplicação local para receber cadernetas de vacinação e registrar a aprovação ou devolução de cada arquivo. O acesso é separado por atividade, sem login neste protótipo local.
 
 ## Executar no Windows
 
@@ -10,15 +10,28 @@ Com Python 3.10 ou superior instalado, dê dois cliques em `INICIAR_IMUNIGUIA.ba
 python server.py
 ```
 
-Acesse <http://127.0.0.1:4173>. Encerre com `Ctrl+C` no terminal do servidor. O aplicativo usa somente bibliotecas incluídas no Python, sem instalação de pacotes.
+Acesse uma das páginas abaixo. Encerre com `Ctrl+C` no terminal do servidor. O aplicativo usa somente bibliotecas incluídas no Python, sem instalação de pacotes.
+
+- <http://127.0.0.1:4173/paciente> — cadastro da pessoa e envio de foto/PDF da caderneta.
+- <http://127.0.0.1:4173/agente-saude> — fila de análise, aprovação ou devolução com orientação.
+- <http://127.0.0.1:4173/> — página para escolher o tipo de acesso.
+
+## Executar com container
+
+Com Docker e Docker Compose instalados, execute:
+
+```bash
+docker compose up --build -d
+```
+
+O serviço ficará disponível nas mesmas URLs locais. Os documentos e o banco SQLite ficam no volume nomeado `imuniguia-data`, portanto continuam preservados ao recriar o container. Para encerrar, use `docker compose down`; para remover também os dados locais, use `docker compose down --volumes`.
 
 ## Fluxo funcional
 
-1. Cadastre um dependente.
-2. Selecione o dependente, informe a vacina e envie um arquivo JPG, PNG, WEBP ou PDF de até 10 MB.
-3. Abra o item pendente e confira o conteúdo do arquivo.
-4. Aprove o envio ou devolva para ajuste com justificativa. Informe o nome do revisor.
-5. Consulte o status, a justificativa e as decisões anteriores na fila.
+1. Na página de paciente, cadastre a pessoa, informe a vacina e envie um arquivo JPG, PNG, WEBP ou PDF de até 10 MB.
+2. Na página de agente de saúde, abra o item pendente e confira o conteúdo do arquivo.
+3. Aprove o envio ou devolva para ajuste com justificativa. Informe o nome do revisor.
+4. Consulte o status, a justificativa e as decisões anteriores na fila.
 
 A aprovação registra que o arquivo foi conferido. Ela não cria nem modifica um registro vacinal oficial.
 
