@@ -6,7 +6,7 @@ Auditoria: 2026-11-08, America/Cuiaba. Branch: `homologacao`.
 
 ## Resultado da classificação
 
-29 issues com critérios do respectivo escopo atendidos; 20 abertas em andamento, incluindo a nova #49 de restauração. Dez das 29 concluídas são repetições cujo escopo foi comparado com a referência; não representam dez funcionalidades adicionais. Encerrar o motor de regras MVP (#7) não significa calendário completo; encerrar Docker de demonstração (#26) não significa publicação pública. A confirmação da sincronização remota será registrada no quadro após a API responder.
+29 issues com critérios do respectivo escopo atendidos; 20 abertas em andamento, incluindo a nova #49 de restauração. Dez das 29 concluídas são repetições cujo escopo foi comparado com a referência; não representam dez funcionalidades adicionais. Encerrar o motor de regras MVP (#7) não significa calendário completo; encerrar Docker de demonstração (#26) não significa publicação pública. Sincronização remota concluída e conferida em nova leitura: 29 fechadas com label `status: concluído` e 20 abertas com `status: em andamento`; critérios e histórico preservados. As colunas do GitHub Projects permanecem sem atualização.
 
 ## Tudo que falta
 
@@ -80,6 +80,8 @@ Duplicatas conferidas e encerradas pelo mesmo critério: #27 → #9, #29 → #7,
 - **[#49 — Corrigir restauração em banco migrado e validar backup PostgreSQL + arquivos](https://github.com/ImuniGov/ImuniGov/issues/49):** Corrigir restauração em banco realmente migrado e validar PostgreSQL + arquivos + hashes; tratar a linha inicial review_gate e compatibilidade de versões do backup.
 
 ## Validação e limites
+
+Estado salvo no commit [92f75f9](https://github.com/ImuniGov/ImuniGov/commit/92f75f9fccb66745de8a0ac26ddf87862f372914). [CI 42558280959](https://github.com/ImuniGov/ImuniGov/actions/runs/42558280959) aprovada nos três jobs: frontend, backend e Docker/PostgreSQL. O commit seguinte registra somente a confirmação documental.
 
 - Base funcional d4e1757: [CI 42555673454](https://github.com/ImuniGov/ImuniGov/actions/runs/42555673454) aprovada em frontend, backend e Docker/PostgreSQL, com 49 testes Docker e 4 testes PWA. Três contas sintéticas conferiram arquivo e dose no navegador, preservando rodadas e histórico.
 - Rascunho atual: 46 testes SQLite aprovados e 3 de OCR pulados por ausência dos motores locais; lint e formatação Python aprovados. Migração 012 aplicada a SQLite temporário e integridade referencial conferida pela migração. Isso não testa o fluxo de impedimento, que ainda não existe.

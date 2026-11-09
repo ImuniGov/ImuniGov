@@ -1,6 +1,6 @@
 # Roadmap do ImuniGuia
 
-> **Estado vigente da auditoria:** meta de implementação pausada pelo usuário. Não retomar desenvolvimento automaticamente. Lista completa em [docs/STATUS_ENTREGA.md](docs/STATUS_ENTREGA.md): 29 issues concluídas pelo respectivo escopo e 20 abertas, incluindo #49 (restauração falha em banco migrado). K18.2 tem somente rascunho de esquema/migração 012, sem fluxo implementado. As prioridades abaixo são para quando houver retomada. Docker local está entregue; HTTPS público, aparelhos reais, operação de privacidade, cobertura clínica ampliada e acessibilidade/usabilidade ainda precisam de validação. A confirmação remota desta auditoria será registrada em KANBAN.md.
+> **Estado vigente da auditoria:** meta de implementação pausada pelo usuário. Não retomar desenvolvimento automaticamente. Lista completa em [docs/STATUS_ENTREGA.md](docs/STATUS_ENTREGA.md): 29 issues concluídas pelo respectivo escopo e 20 abertas, incluindo #49 (restauração falha em banco migrado). K18.2 tem somente rascunho de esquema/migração 012, sem fluxo implementado. As prioridades abaixo são para quando houver retomada. Docker local está entregue; HTTPS público, aparelhos reais, operação de privacidade, cobertura clínica ampliada e acessibilidade/usabilidade ainda precisam de validação. Estados e labels das 49 issues conferidos por nova leitura; CI 92f75f9 aprovada nos três jobs (execução 42558280959). Registro em KANBAN.md.
 
 Atualizado: 2026-11-08 (America/Cuiaba). Entrega em `homologacao`. O usuário escolheu execução Docker; hospedagem pública ainda não foi definida. O pedido atual inclui revisão completa de linguagem e experiência.
 
@@ -15,7 +15,7 @@ Atualizado: 2026-11-08 (America/Cuiaba). Entrega em `homologacao`. O usuário es
 | M2 — acesso e família (#2–#4, #20–#22) | Conta de família, sessão, perfis, pessoas, exportação, privacidade | Reaceite implementado; faltam representação comprovada e operação de eliminação/retenção. |
 | M3 — cadernetas (#1, #13, #14, #42) | Foto/PDF, prévia, OCR, arquivo privado, revisão e auditoria | Três contas e rodadas validadas; falta contexto de pendências na revisão e aparelhos reais. |
 | M4 — regras e registros (#5–#10, #27–#35) | Leitura assistida, candidatos, histórico, motor versionado, pendências | Revisão clínica e ampliar cobertura além das três vacinas de rotina. |
-| M5 — UBS (#12–#15) | Decisões separadas por arquivo/dose, motivos, providências, orientações e datas | Fluxo administrativo completo e aceite com equipe real. |
+| M5 — UBS (#12–#15) | Decisões separadas por arquivo/dose, motivos, providências, orientações e datas | Nome do profissional nas orientações, contexto de pendências na conferência e aceite com equipe real. |
 | M6 — ACS (#16–#18) | Busca ativa por pessoa, prioridade, ações e histórico | Teste de usabilidade com agentes e equipe responsável. |
 | M7 — acompanhamento (#11, #43, #44) | Agenda familiar, avisos, push opt-in, mobile/PWA | Aparelhos reais, HTTPS e entrega push externa. |
 | M8 — qualidade e operação (#24–#26) | Testes automatizados, Docker, CI e guias operacionais | CI d4e1757 aprovada; falta correção de restauração e validação operacional; hospedagem quando definida. |

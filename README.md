@@ -30,6 +30,7 @@ Esta é uma versão de homologação com dados fictícios. Antes de dados reais:
 ## Documentação
 
 - [Kanban e pendências verificáveis](KANBAN.md)
+- [Lista completa de pendências e estado das issues](docs/STATUS_ENTREGA.md)
 - [Roadmap e marcos](roadmap.md)
 - [Guia de continuidade para IA](GUIA_IA.md)
 - [Operação, equipe, migrações e testes](docs/OPERACAO.md)

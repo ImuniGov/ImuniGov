@@ -49,7 +49,9 @@ Base d4e1757: [CI aprovada](https://github.com/ImuniGov/ImuniGov/actions/runs/42
 
 ## Sincronização remota
 
-Atualização de estados e labels de issues preparada nesta etapa; confirmação remota será registrada após execução. Acesso de issues/push funciona. **GitHub Projects: colunas não sincronizadas**, por falta de `read:project`/`project`; labels de issues e este arquivo são superfícies distintas. Nenhuma alteração de permissões foi feita.
+Atualização executada e conferida por nova leitura da API: **29 issues fechadas como concluídas e 20 abertas com label em andamento**, total de 49; dez fechadas são duplicatas de critérios equivalentes. Histórico original preservado. Nova falha registrada na #49. Acesso de issues/push funciona. **GitHub Projects: colunas não sincronizadas**, por falta de `read:project`/`project`; labels de issues e este arquivo são superfícies distintas. Nenhuma alteração de permissões foi feita.
+
+CI do estado salvo em **92f75f9**: [execução 42558280959](https://github.com/ImuniGov/ImuniGov/actions/runs/42558280959) **aprovada** em frontend, backend e docker-postgres. O commit posterior registra apenas documentação.
 
 ## Histórico desta auditoria
 
@@ -57,6 +59,7 @@ Atualização de estados e labels de issues preparada nesta etapa; confirmação
 | --- | --- | --- |
 | 2026-11-08 | Meta pausada; somente auditoria e salvamento | Rascunho K18.2 mantido como incompleto. |
 | 2026-11-08 | 48 issues revisadas, duplicatas comparadas e #49 criada | 29 concluídas pelo escopo, 20 abertas; histórico preservado. |
+| 2026-11-08 | Sincronização verificada e CI aprovada | 29 fechadas, 20 abertas; estados/labels conferidos em nova leitura. CI 42558280959 nos três jobs. Projects permanece pendente. |
 | 2026-11-08 | Falha de restauração documentada | Linha inicial review_gate incompatível com exigência de banco totalmente vazio; não corrigida nesta etapa. |
 
 <details>
