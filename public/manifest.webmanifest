@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "ImuniGuia — cuidado da família",
+  "short_name": "ImuniGuia",
+  "lang": "pt-BR",
+  "description": "Cadernetas, próximas doses e acompanhamento pela equipe de saúde.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f5",
+  "theme_color": "#0d6b5a",
+  "icons": [
+    {"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"/icons/maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ]
+}

@@ -19,9 +19,10 @@ Este é o quadro operacional versionado. Issues guardam o escopo e os critérios
 
 - Responsável: IA; 2026-11-08. Backend dos cartões predecessores pronto para revisão; concluir validação integrada antes de marcar os marcos.
 - [x] Fluxos privados de dependentes, upload, arquivo, revisão e auditoria implementados no servidor.
-- [ ] Interface Família/UBS/ACS com estados vazios, erros, câmera e prévia.
+- [x] Interface Família/UBS/ACS implementada; build e lint sem avisos.
+- [x] Navegador: cadastro família/dependente, prévia e envio de imagem, OCR real 94%, conferência de arquivo e confirmação separada de registro pela UBS.
 - [ ] Verificação visual e ponta a ponta pelo navegador.
-- Próximo passo: construir e exercitar a interface real.
+- Próximo passo: concluir navegador ACS/mobile e requisitos novos K16/K17.
 
 ## Em revisão
 
@@ -41,6 +42,16 @@ Este é o quadro operacional versionado. Issues guardam o escopo e os critérios
 ## Bloqueado
 
 Nenhum cartão formalmente bloqueado. Docker Desktop iniciado e engine respondeu 29.4.3. Hospedagem pública não faz parte desta entrega: usuário escolheu preparar com Docker.
+
+### K16 / K17 — Novo escopo solicitado: mobile/PWA e próximas doses
+
+- Responsável: IA; 2026-11-08; em preparação dentro da integração K06.
+- [x] K16: manifest e ícones 192/512/maskable, service worker só para assets públicos, tela offline e navegação inferior mobile. Build/lint passam e 4 testes Node verificam a instalação/cache.
+- [ ] K16: revisão no navegador mobile e confirmação de instalação/preparação do service worker.
+- [x] K17: agenda por pessoa da família, datas próximas/atrasadas e avisos persistidos. Web Push opcional com payload genérico, proteção CSRF e revogação ao sair.
+- [x] 18 testes Python passaram: janelas de 30/31/0/-1 dias, família isolada, candidato não confirma dose, aviso idempotente, push sem conteúdo clínico/repetição e retry.
+- [ ] Revisão visual da agenda e complemento de datas individualizadas pela UBS para vacinas fora do recorte. Alertas referem-se à data recomendada da dose, não à validade de lote.
+- Critério: testes de datas e isolamento, instalação/configuração PWA verificadas e interface revisada em 390px.
 
 ## A fazer
 
@@ -93,3 +104,5 @@ Atualizar também o histórico. Se GitHub Projects ou issues não puderem ser si
 | 2026-11-08 | K01–K11 | Implementação de base → Em revisão; K06 em andamento | 9 testes passam, build passa, migração/importação/backup/restauração sintéticos verificados em SQLite. Revisão Docker e interface pendentes. |
 
 Sincronização remota pendente: GitHub Projects não tem ferramenta de edição de colunas nesta sessão. Escrita do conector GitHub retornou 403 na entrega anterior; commits/push são feitos pelo Git autenticado. Não declarar issues encerradas.
+
+| 2026-11-08 | K06/K16/K17 | Implementação → Em revisão parcial | React completo, mobile/PWA e agenda; 18 testes Python e 4 testes PWA passaram. Docker em reconstrução; PostgreSQL completo, mobile e docs ainda em validação. |

@@ -1,4 +1,5 @@
 from alembic import context
+
 from backend.db import make_engine, metadata
 
 with make_engine().connect() as connection:
