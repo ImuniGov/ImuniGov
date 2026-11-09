@@ -13,6 +13,7 @@ from . import clock, db
 from . import schemas as s
 from . import security as sec
 from .access import document, one, person, public_document
+from .consents import allowed, permitted_owner, state
 from .domain import event, now, recalculate, uid
 from .privacy import record_acceptance
 from .reviews import assign_document, assign_waiting, cast_vote
@@ -38,6 +39,7 @@ def register(body: s.Register, request: Request, response: Response):
     with engine.begin() as con:
         con.execute(insert(db.users).values(**user))
         record_acceptance(con, user["id"], body)
+        user["privacy"] = state(con, user["id"])
         csrf = sec.start_session(con, user["id"], response, request.app.state.secure)
     return {"user": sec.public_user(user), "csrf": csrf}
 
@@ -59,6 +61,9 @@ def login(body: s.Login, request: Request, response: Response):
         )
         if user["role"] == "ubs":
             assign_waiting(con)
+        user = dict(user)
+        if user["role"] == "familia":
+            user["privacy"] = state(con, user["id"])
         csrf = sec.start_session(con, user["id"], response, request.app.state.secure)
         event(con, user["id"], "user", user["id"], "login")
     return {"user": sec.public_user(user), "csrf": csrf}
@@ -97,7 +102,8 @@ def dependents(request: Request, user=User):
         query = query.where(db.dependents.c.owner_id == user["id"])
     else:
         query = (
-            query.join(db.documents, db.documents.c.dependent_id == db.dependents.c.id)
+            query.where(permitted_owner(db.dependents.c.owner_id))
+            .join(db.documents, db.documents.c.dependent_id == db.dependents.c.id)
             .join(db.review_assignments, db.review_assignments.c.document_id == db.documents.c.id)
             .where(
                 db.review_assignments.c.reviewer_id == user["id"], db.review_assignments.c.status == "ativa"
@@ -128,8 +134,17 @@ def add_dependent(body: s.Dependent, request: Request, user=User):
         id=uid(), owner_id=user["id"], name=body.name, birth_date=body.birthDate.isoformat(), created_at=now()
     )
     with request.app.state.engine.begin() as con:
+        if not allowed(con, user["id"], lock=True):
+            raise HTTPException(403, "Autorização para acompanhamento digital não está vigente.")
         con.execute(insert(db.dependents).values(**item))
-        event(con, user["id"], "dependent", item["id"], "dependente_criado")
+        event(
+            con,
+            user["id"],
+            "dependent",
+            item["id"],
+            "dependente_criado",
+            "Responsável declarou titularidade ou representação legal.",
+        )
         recalculate(con, item["id"], user["id"])
     return {"item": {**item, "birthDate": item["birth_date"], "document_count": 0}}
 
@@ -144,7 +159,14 @@ def edit_dependent(identifier: str, body: s.Dependent, request: Request, user=Us
             .where(db.dependents.c.id == identifier)
             .values(name=body.name, birth_date=body.birthDate.isoformat())
         )
-        event(con, user["id"], "dependent", identifier, "dependente_atualizado")
+        event(
+            con,
+            user["id"],
+            "dependent",
+            identifier,
+            "dependente_atualizado",
+            "Representação reafirmada pelo responsável.",
+        )
         recalculate(con, identifier, user["id"])
     return {"ok": True}
 
@@ -172,9 +194,13 @@ def documents(request: Request, status: str | None = None, user=User):
     if user["role"] == "familia":
         query = query.where(db.dependents.c.owner_id == user["id"])
     if user["role"] == "ubs":
-        query = query.join(
-            db.review_assignments, db.review_assignments.c.document_id == db.documents.c.id
-        ).where(db.review_assignments.c.reviewer_id == user["id"], db.review_assignments.c.status == "ativa")
+        query = (
+            query.where(permitted_owner(db.dependents.c.owner_id))
+            .join(db.review_assignments, db.review_assignments.c.document_id == db.documents.c.id)
+            .where(
+                db.review_assignments.c.reviewer_id == user["id"], db.review_assignments.c.status == "ativa"
+            )
+        )
     if status:
         query = query.where(db.documents.c.status == status)
     with request.app.state.engine.connect() as con:
@@ -265,6 +291,8 @@ async def upload(
     )
     try:
         with engine.begin() as con:
+            if not allowed(con, user["id"], lock=True):
+                raise HTTPException(403, "Autorização para acompanhamento digital não está vigente.")
             con.execute(insert(db.documents).values(**item))
             con.execute(
                 insert(db.jobs).values(

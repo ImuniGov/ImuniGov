@@ -9,6 +9,7 @@ from pathlib import Path
 from sqlalchemy import insert, select, update
 
 from . import clock, db
+from .consents import allowed
 
 
 def uid():
@@ -34,6 +35,8 @@ def event(con, actor, kind, target, action, details=""):
 
 
 def notify(con, owner, key, message):
+    if not allowed(con, owner, lock=True):
+        return
     key = hashlib.sha256(f"{owner}:{key}".encode()).hexdigest()
     if (
         owner
@@ -104,11 +107,10 @@ def evaluate(birth, records, rule_set, today=None):
 
 
 def recalculate(con, dependent_id, actor=None, today=None):
-    dependent = (
-        con.execute(select(db.dependents).where(db.dependents.c.id == dependent_id).with_for_update())
-        .mappings()
-        .one()
-    )
+    dependent = con.execute(select(db.dependents).where(db.dependents.c.id == dependent_id)).mappings().one()
+    if not allowed(con, dependent["owner_id"], lock=True):
+        return []
+    con.execute(select(db.dependents.c.id).where(db.dependents.c.id == dependent_id).with_for_update())
     refresh_dose_plans(con, dependent, actor, today or clock.today())
     active = con.execute(select(db.rules).where(db.rules.c.active.is_(True))).mappings().first()
     if not active:

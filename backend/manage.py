@@ -266,7 +266,9 @@ def main():
             )
             if p["owner_id"]:
                 raise ValueError("Vínculo já atribuído; não será sobrescrito.")
-            birth = Dependent(name=p["name"], birthDate=args.birth_date).birthDate.isoformat()
+            birth = Dependent(
+                name=p["name"], birthDate=args.birth_date, representationConfirmed=True
+            ).birthDate.isoformat()
             owner = (
                 con.execute(
                     select(db.users).where(

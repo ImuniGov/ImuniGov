@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Auth from "./Auth";
 import FamilyReturns from "./FamilyReturns";
+import PrivacyConsent from "./PrivacyConsent";
 import PrivacyRights from "./PrivacyRights";
 import FamilySchedule, { ScheduleSummary } from "./FamilySchedule";
 import PwaPanel from "./PwaPanel";
@@ -352,6 +353,10 @@ export default function App() {
             </div>
           </header>
           <main className="main-content" id="conteudo" tabIndex={-1}>
+            {user.role === "familia" && !user.privacy?.current && (
+              <PrivacyConsent onAccepted={changeUser} />
+            )}
+
             <div className="page-intro">
               <div>
                 <h1>
@@ -843,7 +848,16 @@ export default function App() {
                   <dt>Perfil</dt>
                   <dd>{roles[user.role]}</dd>
                 </dl>
-                <PrivacyRights act={act} busy={busy} onError={showError} />
+                <PrivacyRights
+                  act={act}
+                  busy={busy}
+                  onError={showError}
+                  onPrivacyChange={() =>
+                    api("/api/v1/me")
+                      .then((r) => changeUser(r.user))
+                      .catch(showError)
+                  }
+                />
                 <div className="button-row">
                   <button
                     className="secondary"
@@ -988,6 +1002,7 @@ function PersonForm({ person, onClose, act, busy }) {
   async function submit(e) {
     e.preventDefault();
     const values = Object.fromEntries(new FormData(e.currentTarget));
+    values.representationConfirmed = values.representationConfirmed === "on";
     if (
       await act(
         () =>
@@ -1030,7 +1045,7 @@ function PersonForm({ person, onClose, act, busy }) {
             required
           />
           <label className="checkbox">
-            <input type="checkbox" required />
+            <input type="checkbox" name="representationConfirmed" required />
             <span>
               Confirmo que estes dados são meus ou que posso representar esta
               pessoa. Para crianças e adolescentes, sou responsável legal e ajo

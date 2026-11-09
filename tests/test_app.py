@@ -12,7 +12,10 @@ from backend.worker import parse_candidates, process_one
 
 
 def dependent(c):
-    r = c.post("/api/dependents", json={"name": "Criança Sintética", "birthDate": "2026-01-01"})
+    r = c.post(
+        "/api/dependents",
+        json={"name": "Criança Sintética", "birthDate": "2026-01-01", "representationConfirmed": True},
+    )
     assert r.status_code == 201, r.text
     return r.json()["item"]["id"]
 

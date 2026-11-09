@@ -18,6 +18,7 @@ from sqlalchemy import insert, select, update
 
 from . import clock, db
 from .access import one
+from .consents import allowed, authorization_token, permitted_owner
 from .domain import event, now, recalculate, uid
 from .push import deliver
 from .reviews import assign_waiting
@@ -118,7 +119,12 @@ def process_one(engine, data_dir, extractor=extract):
         )
         job = (
             con.execute(
-                select(db.jobs).where(db.jobs.c.status == "queued").order_by(db.jobs.c.updated_at).limit(1)
+                select(db.jobs)
+                .join(db.documents, db.documents.c.id == db.jobs.c.document_id)
+                .join(db.dependents, db.dependents.c.id == db.documents.c.dependent_id)
+                .where(db.jobs.c.status == "queued", permitted_owner(db.dependents.c.owner_id))
+                .order_by(db.jobs.c.updated_at)
+                .limit(1)
             )
             .mappings()
             .first()
@@ -133,6 +139,10 @@ def process_one(engine, data_dir, extractor=extract):
         if not claimed.rowcount:
             return True
         document = one(con, db.documents, job["document_id"])
+        owner_id = con.scalar(
+            select(db.dependents.c.owner_id).where(db.dependents.c.id == document["dependent_id"])
+        )
+        consent_token = authorization_token(con, owner_id)
     try:
         root = Path(data_dir).resolve() / "uploads"
         path = (root / document["stored_name"]).resolve()
@@ -141,6 +151,21 @@ def process_one(engine, data_dir, extractor=extract):
         text, confidence = extractor(path)
         candidates = parse_candidates(text, confidence)
         with engine.begin() as con:
+            owner = con.execute(
+                select(db.dependents.c.owner_id).where(db.dependents.c.id == document["dependent_id"])
+            ).scalar()
+            if not allowed(con, owner, lock=True) or authorization_token(con, owner) != consent_token:
+                con.execute(
+                    update(db.jobs)
+                    .where(db.jobs.c.id == job["id"])
+                    .values(
+                        status="failed",
+                        raw_text="",
+                        error="Autorização interrompida; resultado não armazenado.",
+                        updated_at=now(),
+                    )
+                )
+                return True
             for candidate in candidates:
                 key = hashlib.sha256(
                     f"{document['id']}:{candidate['vaccine']}:{candidate['dose']}:{candidate['dose_date']}".encode()

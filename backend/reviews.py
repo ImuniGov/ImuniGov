@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import insert, select, update
 
 from . import db
+from .consents import allowed
 from .domain import event, notify, now, recalculate, uid
 from .geography import compatible, profile_snapshot
 
@@ -76,6 +77,13 @@ def assignments(con, document_id):
 
 
 def assign_document(con, document_id):
+    owner = con.execute(
+        select(db.dependents.c.owner_id)
+        .join(db.documents, db.documents.c.dependent_id == db.dependents.c.id)
+        .where(db.documents.c.id == document_id)
+    ).scalar()
+    if not allowed(con, owner, lock=True):
+        return assignments(con, document_id)
     con.execute(select(db.documents.c.id).where(db.documents.c.id == document_id).with_for_update())
     current = assignments(con, document_id)
     if len(current) == QUORUM:
@@ -194,6 +202,13 @@ def summary(con, document_id, target_type, target_id, user, terminal=False):
 def cast_vote(con, document_id, target_type, target_id, decision, note, guidance, user, independent):
     if not independent:
         raise HTTPException(400, "Confirme a declaração de independência ou informe um impedimento.")
+    owner = con.execute(
+        select(db.dependents.c.owner_id)
+        .join(db.documents, db.documents.c.dependent_id == db.dependents.c.id)
+        .where(db.documents.c.id == document_id)
+    ).scalar()
+    if not allowed(con, owner, lock=True):
+        raise HTTPException(403, "Acompanhamento digital pausado pela família.")
     document = (
         con.execute(select(db.documents).where(db.documents.c.id == document_id).with_for_update())
         .mappings()

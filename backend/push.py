@@ -16,6 +16,7 @@ from sqlalchemy import insert, select, update
 
 from . import db
 from . import security as sec
+from .consents import allowed
 from .domain import event, now
 from .schemas import Input
 
@@ -152,6 +153,8 @@ def deliver(engine, directory, sender=webpush):
         )
     for device in devices:
         with engine.connect() as con:
+            if not allowed(con, device["user_id"]):
+                continue
             latest = con.execute(
                 select(db.notifications.c.created_at)
                 .where(

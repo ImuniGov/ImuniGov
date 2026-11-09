@@ -38,6 +38,12 @@ users = table(
     text("privacy_version", nullable=False),
     CheckConstraint("role IN ('familia','ubs','acs')"),
 )
+consent_controls = table(
+    "consent_controls",
+    text("user_id", ForeignKey("users.id"), nullable=False, unique=True),
+    Column("withdrawn", Boolean, nullable=False),
+    text("updated_at", nullable=False),
+)
 acceptances = table(
     "privacy_acceptances",
     text("user_id", ForeignKey("users.id"), nullable=False),

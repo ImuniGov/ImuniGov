@@ -3,6 +3,7 @@ from sqlalchemy import select
 
 from . import db
 from . import security as sec
+from .consents import allowed
 from .reviews import require_assignment, summary
 
 
@@ -16,8 +17,12 @@ def one(con, table, identifier):
 def person(con, identifier, user):
     sec.role(user, "familia", "ubs")
     item = one(con, db.dependents, identifier)
+    if user["role"] == "familia" and user.get("_write") and not allowed(con, user["id"], lock=True):
+        raise HTTPException(403, "Acompanhamento digital pausado. Confira sua autorização.")
     if user["role"] == "familia" and item["owner_id"] != user["id"]:
         raise HTTPException(404, "Dependente não encontrado.")
+    if user["role"] == "ubs" and not allowed(con, item["owner_id"], lock=True):
+        raise HTTPException(403, "O acompanhamento digital desta família está pausado.")
     if (
         user["role"] == "ubs"
         and not con.execute(

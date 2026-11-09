@@ -3,7 +3,7 @@ import { api, send } from "./api";
 import { Field } from "./components";
 import { formatDate } from "./format";
 
-export default function PrivacyRights({ act, busy, onError }) {
+export default function PrivacyRights({ act, busy, onError, onPrivacyChange }) {
   const [items, setItems] = useState([]),
     [acceptances, setAcceptances] = useState([]);
   const refresh = useCallback(async () => {
@@ -26,6 +26,7 @@ export default function PrivacyRights({ act, busy, onError }) {
     ) {
       form.reset();
       await refresh();
+      if (body.kind === "revogacao") onPrivacyChange?.();
     }
   }
   return (
@@ -45,7 +46,9 @@ export default function PrivacyRights({ act, busy, onError }) {
                 <option value="acesso">Acessar meus dados</option>
                 <option value="correcao">Corrigir informações</option>
                 <option value="eliminacao">Solicitar exclusão</option>
-                <option value="revogacao">Revogar minha autorização</option>
+                <option value="revogacao">
+                  Revogar autorização e pausar acompanhamento
+                </option>
                 <option value="informacao">
                   Saber como meus dados são usados
                 </option>

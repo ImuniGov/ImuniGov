@@ -36,6 +36,7 @@ class Register(Login):
 class Dependent(Input):
     name: str = Field(min_length=2, max_length=80)
     birthDate: date
+    representationConfirmed: Literal[True]
 
     @field_validator("birthDate")
     @classmethod

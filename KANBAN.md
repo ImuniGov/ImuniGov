@@ -10,6 +10,12 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 - Preservar escopo e histórico das issues. Duplicatas não são encerradas automaticamente.
 - GitHub Projects e este arquivo são superfícies distintas. Não declarar sincronização de colunas sem leitura de confirmação.
 
+## Em andamento
+
+**K20.1 · #47 — continuidade e revogação da autorização — Em revisão.** Novo aceite explícito para contas antigas/termos alterados; revogação suspende processamento, acesso da equipe e avisos externos, preservando consulta/exportação própria. Resultado OCR em andamento é descartado mesmo se houver reaceite durante a leitura. Declaração `representationConfirmed` exigida no servidor e registrada na auditoria; não substitui prova do vínculo.
+
+Evidência: **39 testes passaram no Docker/PostgreSQL com OCR real**, incluindo quatro cenários de ciclo de autorização; lint, formatação e build passaram. No navegador, conta anterior exibiu pausa, texto vigente e caixas desmarcadas; nenhum aceite foi feito em nome do usuário. Nova versão `2026-11-08.3`; anterior preservada. Migração 010 não cria autorizações antigas. CI deste avanço será conferida após push. Eliminação, retenção e comprovação documental continuam pendentes na #47.
+
 ## Em revisão
 
 | Cartão / issues | Implementado | Aceite restante |
@@ -18,7 +24,7 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 | K02 · #19 | PostgreSQL/Alembic, SQLite local, legado idempotente com hashes, testes de migração | Backup/restauração operacional PostgreSQL+arquivos. |
 | K03 · #2/#3/#20 | Sessão opaca, Argon2, CSRF, autorização por objeto/perfil, equipe administrativa | Revisão de implantação HTTPS e escopos reais. |
 | K04 · #4 | Nascimento, responsável, edição e isolamento | Comprovação administrativa de representação e menores (#47). |
-| K05 · #21/#22 | Auditoria imutável, exportação, aceites e solicitações de direitos | Retenção e operação dos direitos; reaceite de contas antigas. |
+| K05 · #21/#22 | Auditoria imutável, exportação, aceites e solicitações de direitos | Retenção, eliminação e comprovação documental; reaceite e suspensão implementados em K20.1. |
 | K06 · #1/#9/#12/#13/#42 | Interface mobile/desktop, envio com prévia, original, estados e retorno UBS | Testes com usuários e revisão acessível completa. |
 | K07 · #5/#6 | Tesseract por/eng e Poppler, imagens/PDF, candidatos, falha/retry e transcrição manual | Homologação com amostras reais autorizadas e ampliação do parser além das três vacinas. |
 | K08 · #14/#15 | Arquivo e cada dose separados; orientação, motivo, providência, autor/data | Aceite operacional de UBS e administração de perfis. |
@@ -31,7 +37,7 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 | K17 · #44 | Agenda familiar, janela de 30 dias, atraso, data individual de qualquer vacina e push opt-in | Validar entrega externa de push e expandir regras clínicas. |
 | K18 · #45 | Trio sorteado completo; geografia nascimento/trabalho cruzada; independência, impedimento, votos imutáveis, recusa com motivo/providência | Homologar aprovação positiva nas três contas pelo navegador, concorrência e mudanças de perfil/reatribuição. Verificação documental é administrativa; geografia não prova ausência de vínculo pessoal. |
 | K19 · #46 | Catálogo público RNDS com código/fonte/versão/hash, atualização diária e cópia preservada; fonte do MS na agenda | Ampliar regras clinicamente. Não há API pública de recomendação individual integrada nem prontuário pessoal RNDS. |
-| K20 · #47 | Texto legível no cadastro/conta, aceites separados desmarcados, versão/hash, autoria/horário, solicitações e resposta administrativa | Confirmar canal `example@unemat.bbr`; controlador, retenção, representação; reaceite e execução das providências de revogação/eliminação. |
+| K20 · #47 | Texto legível no cadastro/conta, aceites separados desmarcados, versão/hash, autoria/horário, solicitações e resposta administrativa | Confirmar canal `example@unemat.bbr`; controlador, retenção, representação; execução das providências de eliminação e comprovação documental; reaceite e revogação implementados em K20.1. |
 | K21 · #48 | Pesquisa e decisões documentadas; linguagem direta, ações por tarefa, menos decoração, leitura maior, foco e toque; Retornos da UBS | Testes moderados com cidadãos/UBS/ACS e revisão completa de acessibilidade. Sem certificação WCAG ou validação clínica integral. |
 
 ## A fazer
@@ -78,3 +84,5 @@ Código publicado: [57f4e3c](https://github.com/ImuniGov/ImuniGov/commit/57f4e3c
 | 2026-11-08 | Issues e documentação atualizadas | Novos requisitos #43–#48 e progresso #1–#42. Código 57f4e3c publicado; CI aprovada nos três jobs. |
 
 | 2026-11-08 | Validação remota confirmada | Interface, backend e Docker/PostgreSQL passaram na execução 42551947165. Registro documental publicado sem alteração funcional. |
+
+| 2026-11-08 | K20.1 em revisão | Suspensão efetiva, reaceite explícito e representação no servidor; 39 testes Docker passaram. CI do novo commit pendente. |

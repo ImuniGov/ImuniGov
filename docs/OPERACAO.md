@@ -39,16 +39,16 @@ O calendário é uma regra local versionada, com fonte pública do Ministério d
 
 ## Privacidade
 
-Texto vigente: `backend/legal/privacy-2026-11-08.json`. Responsável e contato foram informados pelo usuário: ImuniGuia, `example@unemat.bbr`. Confirmar a validade do contato antes de dados reais. Alterar o documento exige nova versão e preservação do anterior; o hash é calculado sobre os bytes versionados. Conta antiga não recebe aceite fabricado. O novo fluxo de aceite para contas antigas é pendência registrada em #47.
+Texto vigente: `backend/legal/privacy-2026-11-08-v3.json`. Responsável e contato foram informados pelo usuário: ImuniGuia, `example@unemat.bbr`. Confirmar a validade do contato antes de dados reais. Alterar o documento exige nova versão e preservação do anterior; o hash é calculado sobre os bytes versionados. Conta antiga não recebe aceite fabricado. Contas antigas ou com versão/hash anterior recebem aviso de pausa e podem dar novo aceite explícito, mantendo consulta e exportação próprias. Não se inventa aceite anterior.
 
-Solicitações da conta ficam em tabela própria e não apagam dados automaticamente. Operação administrativa:
+Solicitações da conta ficam em tabela própria. Pedir revogação suspende imediatamente novas atividades do acompanhamento voluntário, acesso da equipe e avisos externos; não apaga dados já armazenados. Novos resultados de OCR iniciados sob autorização anterior são descartados; após retomar, a UBS pode repetir a leitura descartada. Um aviso genérico já em trânsito pode não ser cancelável. Operação administrativa:
 
 ```text
 docker compose exec web python -m backend.manage privacy-requests
 docker compose exec web python -m backend.manage answer-privacy --id ID --response "Resposta fundamentada ao titular"
 ```
 
-O responsável deve monitorar a fila, verificar a identidade com minimização de dados e executar/validar a providência cabível. Registrar resposta não executa eliminação ou revogação por si só. Definir bases legais por operação, retenção, atendimento de direitos, comprovação de representação e resposta a incidentes antes de dados reais.
+O responsável deve monitorar a fila, verificar a identidade com minimização de dados e executar/validar a providência cabível. Registrar resposta não executa eliminação. A revogação já foi aplicada pelo pedido, e só novo aceite da própria família retoma o acompanhamento. Definir bases legais por operação, retenção, atendimento de direitos, comprovação de representação e resposta a incidentes antes de dados reais.
 
 ## Verificações
 
@@ -70,3 +70,11 @@ O script `scripts/check_container.py` usa o banco Docker com schemas temporário
 ## Backup e legado
 
 Ferramentas: `python -m backend.backup --help` e `python -m backend.manage import-legacy DIRETORIO`. Testes de importação verificam hashes e idempotência; dependentes importados ficam sem responsável até conferência administrativa e `bind-dependent`. Não assumir que teste sintético de SQLite cobre restauração operacional completa do PostgreSQL. Definir e testar backup de banco e volume de arquivos antes de operação real.
+
+### Contratos de autorização e representação
+
+- `POST /api/v1/privacy/accept` exige `consent`, `healthConsent` e `adultDeclaration` verdadeiros, além de `termsVersion` e `privacyHash` da referência atual. Não reativa avisos externos automaticamente.
+- `GET /api/v1/me` e respostas de autenticação incluem `user.privacy` para contas de família: `current`, `withdrawn` e versão vigente.
+- Cadastro e edição de pessoa exigem `representationConfirmed: true`. É declaração auditada, não comprovação automática de parentesco.
+- Sem autorização vigente, novas mutações do acompanhamento são negadas. Consulta e exportação próprias e solicitações de privacidade permanecem acessíveis. O catálogo público de vacinas não envia dados da família.
+- A migração 010 acrescenta controle de revogação sem fabricar aceite. Dados históricos conservados não voltam a ser usados pela equipe sem novo aceite vigente. Qualquer outra base legal de uso deve ser desenhada e informada em operação separada; não existe exceção administrativa oculta.

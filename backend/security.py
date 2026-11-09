@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request
 from sqlalchemy import delete, insert, select, update
 
 from . import db
+from .consents import state
 
 hasher = PasswordHasher()
 DUMMY_HASH = hasher.hash(secrets.token_urlsafe(24))
@@ -41,7 +42,21 @@ def session_user(request: Request):
     if request.method not in ("GET", "HEAD", "OPTIONS"):
         if not secrets.compare_digest(request.headers.get("X-CSRF-Token", ""), row["csrf"]):
             raise HTTPException(403, "Sessão de formulário inválida. Atualize a página.")
-    return dict(row)
+    result = dict(row)
+    result["_write"] = request.method not in ("GET", "HEAD", "OPTIONS")
+    if row["role"] == "familia":
+        with request.app.state.engine.connect() as con:
+            result["privacy"] = state(con, row["id"])
+        if request.method not in ("GET", "HEAD", "OPTIONS") and not result["privacy"]["current"]:
+            if (
+                not request.url.path.startswith("/api/v1/privacy/")
+                and request.url.path != "/api/v1/auth/logout"
+            ):
+                raise HTTPException(
+                    403,
+                    "O acompanhamento digital está pausado. Confira os termos e a autorização na sua conta.",
+                )
+    return result
 
 
 def role(user, *roles):
@@ -50,7 +65,10 @@ def role(user, *roles):
 
 
 def public_user(user):
-    return {k: user[k] for k in ("id", "name", "email", "role")}
+    return {
+        **{k: user[k] for k in ("id", "name", "email", "role")},
+        **({"privacy": user["privacy"]} if "privacy" in user else {}),
+    }
 
 
 def start_session(con, user_id, response, secure):

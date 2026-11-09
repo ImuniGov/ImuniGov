@@ -8,6 +8,7 @@ from . import clock, db
 from . import schemas as s
 from . import security as sec
 from .access import document, one, person
+from .consents import allowed
 from .domain import event, individual_schedule, notify, now, recalculate, schedule, uid
 from .reviews import cast_vote, declare_impediment, require_assignment, summary
 
@@ -216,7 +217,7 @@ def family_schedule(request: Request, user=User):
                     for i in schedule(dependent["birth_date"], records, active)
                     if (i["vaccine"], i["dose"]) not in overrides
                 ]
-                if active
+                if active and allowed(con, user["id"])
                 else []
             )
             for item in routine + individual:
@@ -392,6 +393,8 @@ def cases(request: Request, q: str = "", status: str = "aberta", user=User):
             .order_by(db.outreach_cases.c.updated_at)
         ).mappings():
             dependent = one(con, db.dependents, case["dependent_id"])
+            if not allowed(con, dependent["owner_id"]):
+                continue
             owner = one(con, db.users, dependent["owner_id"]) if dependent["owner_id"] else None
             if q.lower() not in (dependent["name"] + " " + (owner["name"] if owner else "")).lower():
                 continue
@@ -417,7 +420,10 @@ def cases(request: Request, q: str = "", status: str = "aberta", user=User):
 def contacts(identifier: str, request: Request, user=User):
     sec.role(user, "acs", "ubs")
     with request.app.state.engine.connect() as con:
-        one(con, db.outreach_cases, identifier)
+        case = one(con, db.outreach_cases, identifier)
+        dependent = one(con, db.dependents, case["dependent_id"])
+        if not allowed(con, dependent["owner_id"], lock=True):
+            raise HTTPException(403, "Acompanhamento digital pausado pela família.")
         query = (
             select(db.actions, db.users.c.name.label("author_name"))
             .join(db.users, db.users.c.id == db.actions.c.author_id)
@@ -432,6 +438,9 @@ def add_contact(identifier: str, body: s.Contact, request: Request, user=User):
     sec.role(user, "acs")
     with request.app.state.engine.begin() as con:
         case = one(con, db.outreach_cases, identifier)
+        dependent = one(con, db.dependents, case["dependent_id"])
+        if not allowed(con, dependent["owner_id"], lock=True):
+            raise HTTPException(403, "Acompanhamento digital pausado pela família.")
         if case["status"] != "aberta":
             raise HTTPException(409, "Caso resolvido; consulte o histórico.")
         item = dict(
