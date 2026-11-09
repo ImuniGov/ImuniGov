@@ -16,7 +16,7 @@ Atualizado em 2026-11-08 (America/Cuiaba). Ler AGENTS.md, roadmap.md e KANBAN.md
 
 ## Próxima ordem de trabalho
 
-1. Verificar resultado da CI no commit remoto, sem repetir testes aprovados sem mudança ou falha.
+1. CI do código 57f4e3c já passou em frontend, backend e Docker/PostgreSQL (execução 42551947165). Não repetir testes aprovados sem mudança ou falha; verificar os checks dos próximos commits funcionais.
 2. Fechar lacunas de K18/#45: mudança/reatribuição de perfil profissional, confirmação administrativa de documentos e revisão de concorrência/homologação por três contas.
 3. Fechar K20/#47: aceite de nova versão para contas antigas, execução monitorada de pedidos de revogação/eliminação, comprovação de representação, canal e retenção reais. Atualmente o pedido é registrado e respondido administrativamente; não representa execução automática da providência.
 4. Revisão clínica das regras, ampliação explícita da cobertura e testes de vacinas/condições especiais. Não usar dados agregados de doses aplicadas como calendário.

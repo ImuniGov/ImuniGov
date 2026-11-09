@@ -25,7 +25,7 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 | K09 · #7/#8/#10 | Regras versionadas BCG/Pentavalente/VIP, idade/intervalos e recálculo | Revisão clínica e expansão da cobertura. |
 | K10 · #11 | Avisos persistentes idempotentes e leitura | Entrega de push em aparelhos autorizados reais. |
 | K11 · #16/#17/#18 | ACS por pessoa, contatos mínimos, prioridade e histórico após resolução | Homologação com equipe ACS e definição de escopo territorial se necessário. |
-| K12 · #24 | Testes funcionais e workflow frontend/backend/Docker | Confirmar resultado da CI do commit publicado. |
+| K12 · #24 | Testes funcionais e workflow frontend/backend/Docker | CI do código 57f4e3c aprovada nos três jobs; falta homologação final dos três perfis. |
 | K13 · #25 | README, roadmap, guia IA, instruções, operação e referências UI/UX | Reprodução da execução por pessoa nova. |
 | K16 · #43 | PWA, ícones, offline público, cache sem dados clínicos, navegação mobile | Instalação Android/iOS real com HTTPS externo. |
 | K17 · #44 | Agenda familiar, janela de 30 dias, atraso, data individual de qualquer vacina e push opt-in | Validar entrega externa de push e expandir regras clínicas. |
@@ -51,12 +51,14 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 
 ## Evidências desta etapa
 
+Código publicado: [57f4e3c](https://github.com/ImuniGov/ImuniGov/commit/57f4e3c37d561aa32ae4519f9a0f5c86a0bb19af).
+
 - API/SQLite: testes de fluxo, acesso cruzado, calendário, avisos, trio, comparações geográficas cruzadas/RIDE, recusa para família, independência, privacidade, indisponibilidade RNDS e imutabilidade. **32 passaram, 3 pulados** no Windows por ausência dos motores OCR locais; OCR é exigido no Docker.
 - Docker/PostgreSQL: execução dos mesmos fluxos em schemas temporários próprios; OCR real de imagem, PDF escaneado e PDF com texto. **35 passaram** na execução final com `REQUIRE_OCR=1`, incluindo OCR real e testes negativos de imutabilidade.
 - Frontend: lint sem avisos, formatação e build passaram; **4 testes PWA passaram** (ícones, cache público e exclusão de API privada).
 - Consulta real de RNDS: `backend.manage sync-sources` retornou `ok: true`; snapshot oficial contém **80 conceitos de vacinas ativas** de 118 imunobiológicos, versão publicada pela fonte `1.0.0-release`. A data de consulta não é a data de publicação do catálogo.
 - Navegador: termos abrem com leitura completa e caixas desmarcadas; família e UBS; devolução de arquivo sintético com motivo e providência; retorno visível à família; mobile 390px e 320px sem transbordamento horizontal do documento, desktop 1366px e navegação. Reenvio abre com a pessoa correta selecionada. Não houve aceite de termos reais em nome do usuário nem envio de dados de pacientes.
-- CI remota: pendente até push e leitura do resultado. Hospedagem pública, push externo real, aparelhos e usuários reais não foram declarados verificados.
+- **CI remota aprovada** no código publicado `57f4e3c`: [execução 42551947165](https://github.com/ImuniGov/ImuniGov/actions/runs/42551947165), jobs frontend, backend e docker-postgres com `success`. O commit seguinte apenas registra esta evidência em documentação e não altera código executável. Hospedagem pública, push externo real, aparelhos e usuários reais não foram declarados verificados.
 
 ## Sincronização remota
 
@@ -73,4 +75,6 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 | 2026-11-08 | K16/K17 implementados; em revisão | Mobile/PWA, agenda, avisos e datas UBS; testes e revisão visual. |
 | 2026-11-08 | K18/K20 implementados; em revisão parcial | Trio independente, votos e termos específicos. Pendências operacionais acima. |
 | 2026-11-08 | K19/K21 implementados; em revisão | RNDS público e revisão de UX fundamentada. Fontes em docs/DESIGN_UX.md; próximos passos clínicos/acessíveis explícitos. |
-| 2026-11-08 | Issues e documentação atualizadas | Novos requisitos #43–#48 e progresso #1–#42. Publicar commits e verificar CI. |
+| 2026-11-08 | Issues e documentação atualizadas | Novos requisitos #43–#48 e progresso #1–#42. Código 57f4e3c publicado; CI aprovada nos três jobs. |
+
+| 2026-11-08 | Validação remota confirmada | Interface, backend e Docker/PostgreSQL passaram na execução 42551947165. Registro documental publicado sem alteração funcional. |
