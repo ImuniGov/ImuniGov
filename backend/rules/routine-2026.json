@@ -1,0 +1,17 @@
+{
+  "version": "PNI-2026-MVP-BCG-PENTA-VIP-v1",
+  "source": "https://www.gov.br/saude/pt-br/vacinacao/publicacoes/instrucao-normativa-que-instrui-o-calendario-nacional-de-vacinacao-2026.pdf/@@download/file",
+  "valid_from": "2026-01-01",
+  "valid_until": "2026-12-31",
+  "rules": [
+    {"id":"bcg-1","vaccine":"BCG","dose":1,"due_months":0,"min_months":0,"max_months":60},
+    {"id":"penta-1","vaccine":"Pentavalente","dose":1,"due_months":2,"min_months":0,"min_age_days":45,"max_months":84},
+    {"id":"penta-2","vaccine":"Pentavalente","dose":2,"due_months":4,"min_months":0,"min_age_days":75,"max_months":84,"min_interval_days":30},
+    {"id":"penta-3","vaccine":"Pentavalente","dose":3,"due_months":6,"min_months":6,"max_months":84,"min_interval_days":30,"min_from_first_months":4},
+    {"id":"vip-1","vaccine":"Poliomielite VIP","dose":1,"due_months":2,"min_months":0,"min_age_days":45,"max_months":60},
+    {"id":"vip-2","vaccine":"Poliomielite VIP","dose":2,"due_months":4,"min_months":0,"min_age_days":75,"max_months":60,"min_interval_days":30},
+    {"id":"vip-3","vaccine":"Poliomielite VIP","dose":3,"due_months":6,"min_months":0,"min_age_days":105,"max_months":60,"min_interval_days":30},
+    {"id":"vip-4","vaccine":"Poliomielite VIP","dose":4,"due_months":15,"min_months":0,"max_months":60,"min_interval_months":6},
+    {"id":"vip-5","vaccine":"Poliomielite VIP","dose":5,"due_months":48,"min_months":0,"max_months":60,"min_interval_months":6}
+  ]
+}

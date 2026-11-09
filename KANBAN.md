@@ -15,31 +15,37 @@ Este é o quadro operacional versionado. Issues guardam o escopo e os critérios
 
 ## Em andamento
 
-Nenhum cartão ativo. Ao iniciar trabalho, mover o cartão correspondente para esta seção e registrar responsável/data.
+### K06 — Interface completa e integração (M3, #1 e #42)
+
+- Responsável: IA; 2026-11-08. Backend dos cartões predecessores pronto para revisão; concluir validação integrada antes de marcar os marcos.
+- [x] Fluxos privados de dependentes, upload, arquivo, revisão e auditoria implementados no servidor.
+- [ ] Interface Família/UBS/ACS com estados vazios, erros, câmera e prévia.
+- [ ] Verificação visual e ponta a ponta pelo navegador.
+- Próximo passo: construir e exercitar a interface real.
 
 ## Em revisão
 
-Nenhum cartão aguardando revisão.
+| Cartão | Implementação / evidência já obtida | Falta para concluir |
+| --- | --- | --- |
+| K01 | React/Vite reconstruído com favicon/proxy; npm ci, build e health passam. Contratos de teste implementados na API FastAPI. | Confirmar integração visual e documentar reconstrução e mudanças de segurança. |
+| K02 | SQLAlchemy/Alembic, migração inicial imutável, importação legada idempotente com hashes; backup/restauração com recusa de sobrescrita testados. | Executar também com PostgreSQL em Docker. |
+| K03 | Sessão opaca em cookie HttpOnly, Argon2, CSRF, perfis concedidos só por administração; testes de acesso cruzado passam. | Conferir fluxo no navegador e revisar configuração Docker. |
+| K04 | Nascimento, dono, atualização e isolamento; importação não inventa responsável. | Exercitar formulário e negativas de nascimento no teste integrado. |
+| K05 | Auditoria de ator autenticado, ciência de privacidade, exportação própria; ACS recebe dados mínimos. | Travas de auditoria no banco e política operacional documentada. |
+| K07 | Worker SQL durável, OCR Tesseract/PDF e candidatos a_conferir; testes de falha/idempotência passam. | Exercitar motor real no container, incluindo PDF. |
+| K08 | Decisões de documento e registro separadas; orientação liberada só para responsável; testes do fluxo passam. | Interface e validação visual. |
+| K09 | Regras versionadas para recorte BCG/Pentavalente/VIP, idade e intervalos; recálculo real após decisão. Fonte PNI 2026 consultada. | Revisar limites/cobertura, fonte e comunicar recorte na interface; fora do recorte não equivale a situação regular. |
+| K10 | Notificações idempotentes privadas e leitura persistida; testes passam. | Interface e teste no navegador. |
+| K11 | Fila ACS com motivo, prioridade e contato; ações preservadas após resolução; testes passam. | Interface, filtros e verificação visual. |
 
 ## Bloqueado
 
-Nenhum cartão formalmente bloqueado. K01 exige localizar os fontes ausentes; registrar aqui se a investigação confirmar que depende de material da equipe.
+Nenhum cartão formalmente bloqueado. Docker Desktop iniciado e engine respondeu 29.4.3. Hospedagem pública não faz parte desta entrega: usuário escolheu preparar com Docker.
 
 ## A fazer
 
 | ID | Marco / issues | Entrega | Depende de | Evidência exigida / próximo passo |
 | --- | --- | --- | --- | --- |
-| K01 | M1 · #23 | Recuperar frontend versionado e integrar a base de teste | K00 | Localizar src/main.jsx e assets; resolver conflitos de index.html/README; documentar diretórios, contrato API, porta/proxy; build e health verificados. |
-| K02 | M1 · #19 | Banco, migrações e importação de dados/arquivos | K01 | Esquema, chaves e migrações reproduzíveis; relatório de contagens, relações e hashes antes/depois; restauração ensaiada. |
-| K03 | M2 · #2, #3, #20, #42 | Cadastro, sessão e permissões no backend | K02 | E-mail único, hash de senha, logout; testes anônimo/perfil indevido/acesso entre famílias. |
-| K04 | M2 · #4 | Dependentes completos e vinculados | K03 | Nascimento válido e isolamento por responsável comprovado; migrar nomes existentes sem atribuir dono arbitrário. |
-| K05 | M2 · #21, #22 | Auditoria confiável e privacidade | K03, K04 | Autor autenticado, eventos protegidos; inventário de dados, regras de acesso, retenção e consentimento quando aplicável documentados. |
-| K06 | M3 · #1, #42 | Upload e conferência na interface definitiva | K05 | Prévia/câmera, contrato de formatos e limite, arquivo privado, fila e decisão integrados; testes válidos/inválidos passam. |
-| K07 | M4 · #5, #6 | OCR e candidatos a_conferir | K06 | Original vinculado, confiança/falha, tarefa idempotente; candidato nunca confirma dose. |
-| K08 | M5 · #12, #13, #14, #15 | Revisão UBS, acompanhamento e orientação | K07 | Revisão de registro com identidade confiável, estado e orientação por família; recálculo de #14 permanece pendente até K09. |
-| K09 | M6 · #7, #8, #9, #10, #14 | Regras, histórico e pendências | K08 | Regra/versão de origem, casos de borda e recálculo real após decisão; distinguir confirmado de candidato. |
-| K10 | M7 · #11 | Notificações | K09 | Mesmo evento não duplica aviso; destinatário isolado e leitura persistida. |
-| K11 | M7 · #16, #17, #18 | Busca ativa ACS | K09 | Motivo e prioridade, dados mínimos, autor e histórico de contatos; resolver caso remove da fila ativa. |
 | K12 | M8 · #24 | Consolidar testes e CI | K10, K11 | Testes acrescentados desde K01; CI executa instalação, lint, build, migrações e fluxos relevantes; registrar comandos/resultados. |
 | K13 | M8 · #25 | Completar documentação operacional | K12 | Pessoa nova reproduz execução e fluxo; README, arquitetura, configuração e contribuição sincronizados com código real. |
 | K14 | M8 · #26 | Publicar demonstração validada | K13 | Hospedagem definida, HTTPS/segredos, backup/restauração e fluxo completo verificados; registrar URL e limitações. |
@@ -81,3 +87,9 @@ Ao detalhar um cartão, mover sua linha para a coluna correta ou substituí-la p
 - Próximo passo:
 
 Atualizar também o histórico. Se GitHub Projects ou issues não puderem ser sincronizados, registrar o alvo, a transição pendente e o motivo; manter a entrega de código e o quadro versionado coerentes. Não declarar o quadro remoto atualizado sem leitura de confirmação.
+
+| 2026-11-08 | K01 | A fazer → Em andamento | Histórico sem fontes React; reconstrução autorizada pelo novo escopo. Docker escolhido pelo usuário. |
+
+| 2026-11-08 | K01–K11 | Implementação de base → Em revisão; K06 em andamento | 9 testes passam, build passa, migração/importação/backup/restauração sintéticos verificados em SQLite. Revisão Docker e interface pendentes. |
+
+Sincronização remota pendente: GitHub Projects não tem ferramenta de edição de colunas nesta sessão. Escrita do conector GitHub retornou 403 na entrega anterior; commits/push são feitos pelo Git autenticado. Não declarar issues encerradas.

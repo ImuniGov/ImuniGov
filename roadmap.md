@@ -10,7 +10,7 @@ Meta: integrar a base funcional de `teste` ao frontend de `main` na branch `homo
 - [Issues do repositório](https://github.com/ImuniGov/ImuniGov/issues): 42 issues consultadas, todas abertas na coleta. #1, #13 e #14 têm entregas parciais descritas. Checkbox marcado na issue não comprova sozinho implementação do requisito completo.
 - [Arquitetura alvo em teste](https://github.com/ImuniGov/ImuniGov/blob/025fbed4d44e6ab48b982b0a9973fe78e34acd09/ARQUITETURA.md): React/TypeScript, FastAPI/Pydantic/SQLAlchemy, Alembic/PostgreSQL, armazenamento privado S3/MinIO, Redis/Celery e CI são destino planejado; não são a stack já implementada.
 
-Esta entrega adiciona planejamento sobre a base de `main`. Não faz merge de `teste`, não migra dados e não entrega funcionalidades do MVP. A integração é o primeiro trabalho do roadmap. Não há datas de entrega estimadas sem dimensionamento da equipe.
+Atualização de execução: o usuário solicitou concluir o app e escolheu Docker. Como não há fontes React no histórico, a interface está sendo reconstruída. Backend FastAPI/SQLAlchemy, contratos legados, migrações, importação e testes já implementados; consultar KANBAN.md para estado e verificações atuais. O diagnóstico abaixo é o levantamento inicial, preservado como referência histórica. Não há previsão de prazo inventada.
 
 ## O que existe e o que falta
 

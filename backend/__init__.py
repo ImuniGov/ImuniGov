@@ -1,0 +1,1 @@
+"""ImuniGuia application."""
