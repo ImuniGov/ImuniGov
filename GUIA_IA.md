@@ -16,8 +16,8 @@ Atualizado em 2026-11-08 (America/Cuiaba). Ler AGENTS.md, roadmap.md e KANBAN.md
 
 ## Próxima ordem de trabalho
 
-1. CI mais recente do código ed96a06 passou em frontend, backend e Docker/PostgreSQL (execução 42552984180), com 39 testes Docker. Não repetir testes aprovados sem mudança ou falha; verificar os checks dos próximos commits funcionais.
-2. Fechar lacunas de K18/#45: alteração/suspensão e reatribuição por rodadas implementadas, com prévia/versionamento, votos preservados e concorrência testada. Conferir homologação por três contas e procedimento humano de verificação documental.
+1. CI mais recente do código d4e1757 passou em frontend, backend e Docker/PostgreSQL (execução 42555673454), com 49 testes Docker. Não repetir testes aprovados sem mudança ou falha; verificar os checks dos próximos commits funcionais.
+2. Fechar lacunas de K18/#45: alteração/suspensão e reatribuição por rodadas implementadas, com prévia/versionamento, votos preservados e concorrência testada. Três contas fictícias homologadas no navegador (arquivo e dose), inclusive preservação de voto anterior após nova rodada. Continuar K18.2: impedimento posterior ao voto por caso, sem alterar artificialmente perfil; manter procedimento humano de verificação documental.
 3. Fechar K20/#47: aceite de nova versão e suspensão por revogação implementados; execução monitorada de pedidos de eliminação, comprovação de representação, canal e retenção reais. A revogação suspende o processamento voluntário, novos acessos da equipe e avisos externos; resultados OCR anteriores à interrupção são descartados mesmo se houver novo aceite durante a leitura. Consulta/exportação própria continua disponível. Eliminação e retenção ainda exigem procedimento administrativo.
 4. Revisão clínica das regras, ampliação explícita da cobertura e testes de vacinas/condições especiais. Não usar dados agregados de doses aplicadas como calendário.
 5. Continuar revisão acessível com usuários e aparelhos reais. Ler docs/DESIGN_UX.md; preservar linguagem simples, precisão clínica, padrões e hierarquia funcional.

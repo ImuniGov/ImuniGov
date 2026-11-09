@@ -16,7 +16,7 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 
 Evidências: **49 testes Docker/PostgreSQL com OCR real passaram**; migração SQLite com atribuições/votos já existentes preservou dados e FKs; testes concorrentes de três votos, envio duplicado, sorteio e alteração de perfil contra voto passaram em SQLite e PostgreSQL. No navegador, três contas fictícias distintas aprovaram o arquivo e depois a dose; após um e dois votos o caso permaneceu a conferir, após o terceiro confirmou. Família viu os três profissionais e retornos. O teste não autentica documentação profissional real.
 
-Restante: encaminhamento administrativo de impedimento descoberto depois de voto (K18.2), revisão jurídico-operacional e teste com equipe real. CI deste avanço será conferida após push.
+Restante: encaminhamento administrativo de impedimento descoberto depois de voto (K18.2), revisão jurídico-operacional e teste com equipe real. [CI do código d4e1757 aprovada](https://github.com/ImuniGov/ImuniGov/actions/runs/42555673454) nos três jobs. No teste local do comando com prévia/aplicação, um caso em andamento foi reiniciado e dois concluídos foram preservados; a família abriu o voto da rodada 1 durante a rodada 2.
 
 ## Último avanço em revisão
 
@@ -100,4 +100,6 @@ Código publicado: [57f4e3c](https://github.com/ImuniGov/ImuniGov/commit/57f4e3c
 - **K18.2 · #45:** o profissional que já votou ainda recebe orientação de procurar a administração ao declarar impedimento. Implementar encaminhamento por caso sem alterar artificialmente seu perfil, com preservação do histórico e tratamento explícito de decisões já concluídas.
 - **K09.1 · #10/#48:** pendências resolvidas mantêm o motivo histórico antigo na lista. Mostrar explicitamente que o motivo é anterior e organizar resolvidas como histórico, para não sugerir ausência atual de uma dose confirmada.
 
-| 2026-11-08 | K18.1 em revisão | Rodadas, suspensão e alteração auditada; homologação com três contas no navegador e testes de concorrência. CI do novo commit pendente. |
+| 2026-11-08 | K18.1 em revisão | Rodadas, suspensão e alteração auditada; homologação com três contas no navegador e testes de concorrência. CI d4e1757 aprovada na execução 42555673454. |
+
+| 2026-11-08 | K18.1 validado tecnicamente | CI 42555673454 aprovada; três contas conferidas pelo navegador; CLI com prévia/versão e histórico anterior exercitada com dados fictícios. K18.2 permanece aberto. |
