@@ -11,7 +11,7 @@ Atualizado: 2026-11-08 (America/Cuiaba). Entrega em `homologacao`. O usuário es
 | M0 — diagnóstico (#23, #25, #42) | Roadmap, kanban, guia e AGENTS.md | Manter documentação e issues sincronizadas. |
 | M1 — base e dados (#19, #23) | React/FastAPI, PostgreSQL/Alembic, importação legada e hashes | Backup/restauração operacional completo PostgreSQL+arquivos. |
 | M2 — acesso e família (#2–#4, #20–#22) | Conta de família, sessão, perfis, pessoas, exportação, privacidade | Reaceite implementado; faltam representação comprovada e operação de eliminação/retenção. |
-| M3 — cadernetas (#1, #13, #14, #42) | Foto/PDF, prévia, OCR, arquivo privado, revisão e auditoria | Homologação final de três profissionais e gestão de perfis alterados. |
+| M3 — cadernetas (#1, #13, #14, #42) | Foto/PDF, prévia, OCR, arquivo privado, revisão e auditoria | Gestão auditada de perfis e rodadas implementada; concluir homologação por três contas e verificação documental. |
 | M4 — regras e registros (#5–#10, #27–#35) | Leitura assistida, candidatos, histórico, motor versionado, pendências | Revisão clínica e ampliar cobertura além das três vacinas de rotina. |
 | M5 — UBS (#12–#15) | Decisões separadas por arquivo/dose, motivos, providências, orientações e datas | Fluxo administrativo completo e aceite com equipe real. |
 | M6 — ACS (#16–#18) | Busca ativa por pessoa, prioridade, ações e histórico | Teste de usabilidade com agentes e equipe responsável. |

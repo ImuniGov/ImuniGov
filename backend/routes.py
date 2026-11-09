@@ -16,7 +16,7 @@ from .access import document, one, person, public_document
 from .consents import allowed, permitted_owner, state
 from .domain import event, now, recalculate, uid
 from .privacy import record_acceptance
-from .reviews import assign_document, assign_waiting, cast_vote
+from .reviews import assign_document, assign_waiting, cast_vote, lock_roster
 
 router = APIRouter()
 User = Depends(sec.session_user)
@@ -60,6 +60,12 @@ def login(body: s.Login, request: Request, response: Response):
             )
         )
         if user["role"] == "ubs":
+            if con.scalar(
+                select(db.reviewer_profiles.c.id).where(
+                    db.reviewer_profiles.c.user_id == user["id"], db.reviewer_profiles.c.active.is_(False)
+                )
+            ):
+                raise HTTPException(403, "Seu acesso profissional está suspenso. Procure a administração.")
             assign_waiting(con)
         user = dict(user)
         if user["role"] == "familia":
@@ -291,6 +297,7 @@ async def upload(
     )
     try:
         with engine.begin() as con:
+            lock_roster(con)
             if not allowed(con, user["id"], lock=True):
                 raise HTTPException(403, "Autorização para acompanhamento digital não está vigente.")
             con.execute(insert(db.documents).values(**item))
@@ -343,6 +350,7 @@ def document_file(identifier: str, request: Request, user=User):
 def decide_document(identifier: str, body: s.Decision, request: Request, user=User):
     sec.role(user, "ubs")
     with request.app.state.engine.begin() as con:
+        lock_roster(con)
         item, dependent = document(con, identifier, user)
         cast_vote(
             con,
@@ -354,6 +362,7 @@ def decide_document(identifier: str, body: s.Decision, request: Request, user=Us
             body.guidance,
             user,
             body.independenceConfirmed,
+            body.reviewRound,
         )
         return {"item": public_document(one(con, db.documents, identifier), dependent, con, user)}
 

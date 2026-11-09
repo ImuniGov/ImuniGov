@@ -15,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    true,
 )
 
 metadata = MetaData()
@@ -97,6 +98,7 @@ documents = table(
     text("created_at", nullable=False),
     text("reviewed_at"),
     text("reviewer", nullable=False),
+    Column("review_round", Integer, nullable=False, server_default="1"),
     CheckConstraint("status IN ('pendente','aprovado','rejeitado')"),
 )
 audit = table(
@@ -222,6 +224,9 @@ push_subscriptions = table(
 )
 
 
+review_gate = table("review_gate", Column("revision", Integer, nullable=False, server_default="1"))
+
+
 review_assignments = table(
     "review_assignments",
     text("document_id", ForeignKey("documents.id"), nullable=False),
@@ -229,7 +234,8 @@ review_assignments = table(
     text("created_at", nullable=False),
     text("status", nullable=False, server_default="ativa"),
     Column("profile_snapshot", JSON, nullable=False),
-    UniqueConstraint("document_id", "reviewer_id"),
+    Column("review_round", Integer, nullable=False, server_default="1"),
+    UniqueConstraint("document_id", "reviewer_id", "review_round", name="uq_assignment_round"),
 )
 
 reviewer_profiles = table(
@@ -240,6 +246,17 @@ reviewer_profiles = table(
     Column("work_city_code", String(7), nullable=False),
     text("verified_at", nullable=False),
     text("verification_ref", nullable=False),
+    Column("active", Boolean, nullable=False, server_default=true()),
+)
+
+reviewer_changes = table(
+    "reviewer_changes",
+    text("profile_id", ForeignKey("reviewer_profiles.id"), nullable=False),
+    Column("before", JSON, nullable=False),
+    Column("after", JSON, nullable=False),
+    text("reason", nullable=False),
+    text("verification_ref", nullable=False),
+    text("created_at", nullable=False),
 )
 
 review_votes = table(

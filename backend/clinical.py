@@ -10,7 +10,7 @@ from . import security as sec
 from .access import document, one, person
 from .consents import allowed
 from .domain import event, individual_schedule, notify, now, recalculate, schedule, uid
-from .reviews import cast_vote, declare_impediment, require_assignment, summary
+from .reviews import cast_vote, declare_impediment, historical_votes, lock_roster, require_assignment, summary
 
 router = APIRouter()
 User = Depends(sec.session_user)
@@ -129,6 +129,7 @@ def history(identifier: str, request: Request, user=User):
 def decide_record(identifier: str, body: s.RecordDecision, request: Request, user=User):
     sec.role(user, "ubs")
     with request.app.state.engine.begin() as con:
+        lock_roster(con)
         record = one(con, db.vaccinations, identifier)
         dependent = person(con, record["dependent_id"], user)
         if body.decision == "validado":
@@ -154,6 +155,7 @@ def decide_record(identifier: str, body: s.RecordDecision, request: Request, use
             body.guidance,
             user,
             body.independenceConfirmed,
+            body.reviewRound,
         )
         return {"item": one(con, db.vaccinations, identifier)}
 
@@ -499,6 +501,9 @@ def export(request: Request, user=User):
                 ]
                 for row in rows:
                     row.pop("stored_name", None)
+                if name == "documents":
+                    for row in rows:
+                        row["reviewHistory"] = historical_votes(con, row["id"])
                 item[name] = rows
             result["dependents"].append(item)
         event(con, user["id"], "user", user["id"], "dados_exportados")
@@ -509,6 +514,7 @@ def export(request: Request, user=User):
 def impediment(identifier: str, body: s.Impediment, request: Request, user=User):
     sec.role(user, "ubs")
     with request.app.state.engine.begin() as con:
+        lock_roster(con)
         document(con, identifier, user)
         declare_impediment(con, identifier, user, body.reason)
     return {"ok": True}
@@ -549,3 +555,11 @@ def family_feedback(request: Request, user=User):
                     }
                 )
     return {"items": sorted(items, key=lambda i: i["at"] or "", reverse=True)}
+
+
+@router.get("/api/v1/documents/{identifier}/review-history")
+def review_history(identifier: str, request: Request, user=User):
+    sec.role(user, "familia")
+    with request.app.state.engine.connect() as con:
+        item, _ = document(con, identifier, user)
+        return {"items": historical_votes(con, identifier, before_round=item["review_round"])}

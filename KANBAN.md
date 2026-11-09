@@ -10,6 +10,14 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 - Preservar escopo e histórico das issues. Duplicatas não são encerradas automaticamente.
 - GitHub Projects e este arquivo são superfícies distintas. Não declarar sincronização de colunas sem leitura de confirmação.
 
+## Último avanço de revisão independente
+
+**K18.1 · #45 — alteração e suspensão de revisores — Em revisão.** Alteração cadastral auditada, retirada de sessões/acesso, nova rodada para conferências em andamento e preservação de votos e decisões anteriores implementados. Comando administrativo tem prévia e versão esperada para impedir alterações baseadas em perfil desatualizado. Mudanças/votos/atribuições são serializados no banco, sem relaxar geografia.
+
+Evidências: **49 testes Docker/PostgreSQL com OCR real passaram**; migração SQLite com atribuições/votos já existentes preservou dados e FKs; testes concorrentes de três votos, envio duplicado, sorteio e alteração de perfil contra voto passaram em SQLite e PostgreSQL. No navegador, três contas fictícias distintas aprovaram o arquivo e depois a dose; após um e dois votos o caso permaneceu a conferir, após o terceiro confirmou. Família viu os três profissionais e retornos. O teste não autentica documentação profissional real.
+
+Restante: encaminhamento administrativo de impedimento descoberto depois de voto (K18.2), revisão jurídico-operacional e teste com equipe real. CI deste avanço será conferida após push.
+
 ## Último avanço em revisão
 
 **K20.1 · #47 — continuidade e revogação da autorização — Em revisão.** Novo aceite explícito para contas antigas/termos alterados; revogação suspende processamento, acesso da equipe e avisos externos, preservando consulta/exportação própria. Resultado OCR em andamento é descartado mesmo se houver reaceite durante a leitura. Declaração `representationConfirmed` exigida no servidor e registrada na auditoria; não substitui prova do vínculo.
@@ -35,7 +43,7 @@ Evidência: **39 testes passaram no Docker/PostgreSQL com OCR real**, incluindo 
 | K13 · #25 | README, roadmap, guia IA, instruções, operação e referências UI/UX | Reprodução da execução por pessoa nova. |
 | K16 · #43 | PWA, ícones, offline público, cache sem dados clínicos, navegação mobile | Instalação Android/iOS real com HTTPS externo. |
 | K17 · #44 | Agenda familiar, janela de 30 dias, atraso, data individual de qualquer vacina e push opt-in | Validar entrega externa de push e expandir regras clínicas. |
-| K18 · #45 | Trio sorteado completo; geografia nascimento/trabalho cruzada; independência, impedimento, votos imutáveis, recusa com motivo/providência | Homologar aprovação positiva nas três contas pelo navegador, concorrência e mudanças de perfil/reatribuição. Verificação documental é administrativa; geografia não prova ausência de vínculo pessoal. |
+| K18 · #45 | Trio sorteado completo; geografia nascimento/trabalho cruzada; independência, impedimento, votos imutáveis, recusa com motivo/providência | Aprovação positiva por três contas, concorrência e mudanças de perfil/rodadas validadas. Falta encaminhamento por caso para impedimento posterior ao voto (K18.2). Verificação documental é administrativa; geografia não prova ausência de vínculo pessoal. |
 | K19 · #46 | Catálogo público RNDS com código/fonte/versão/hash, atualização diária e cópia preservada; fonte do MS na agenda | Ampliar regras clinicamente. Não há API pública de recomendação individual integrada nem prontuário pessoal RNDS. |
 | K20 · #47 | Texto legível no cadastro/conta, aceites separados desmarcados, versão/hash, autoria/horário, solicitações e resposta administrativa | Confirmar canal `example@unemat.bbr`; controlador, retenção, representação; execução das providências de eliminação e comprovação documental; reaceite e revogação implementados em K20.1. |
 | K21 · #48 | Pesquisa e decisões documentadas; linguagem direta, ações por tarefa, menos decoração, leitura maior, foco e toque; Retornos da UBS | Testes moderados com cidadãos/UBS/ACS e revisão completa de acessibilidade. Sem certificação WCAG ou validação clínica integral. |
@@ -86,3 +94,10 @@ Código publicado: [57f4e3c](https://github.com/ImuniGov/ImuniGov/commit/57f4e3c
 | 2026-11-08 | Validação remota confirmada | Interface, backend e Docker/PostgreSQL passaram na execução 42551947165. Registro documental publicado sem alteração funcional. |
 
 | 2026-11-08 | K20.1 em revisão | Suspensão efetiva, reaceite explícito e representação no servidor; 39 testes Docker passaram. CI ed96a06 aprovada nos três jobs, execução 42552984180. |
+
+## Pendências identificadas durante a homologação
+
+- **K18.2 · #45:** o profissional que já votou ainda recebe orientação de procurar a administração ao declarar impedimento. Implementar encaminhamento por caso sem alterar artificialmente seu perfil, com preservação do histórico e tratamento explícito de decisões já concluídas.
+- **K09.1 · #10/#48:** pendências resolvidas mantêm o motivo histórico antigo na lista. Mostrar explicitamente que o motivo é anterior e organizar resolvidas como histórico, para não sugerir ausência atual de uma dose confirmada.
+
+| 2026-11-08 | K18.1 em revisão | Rodadas, suspensão e alteração auditada; homologação com três contas no navegador e testes de concorrência. CI do novo commit pendente. |

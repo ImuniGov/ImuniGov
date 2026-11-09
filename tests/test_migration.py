@@ -150,3 +150,92 @@ def test_outreach_upgrade_preserves_prior_contacts(tmp_path, monkeypatch):
         )
         assert con.execute(select(db.outreach_cases.c.status)).scalar_one() == "aberta"
     engine.dispose()
+
+
+def test_round_upgrade_preserves_populated_assignments_and_votes(tmp_path, monkeypatch):
+    url = "sqlite:///" + str(tmp_path / "round-upgrade.sqlite3")
+    monkeypatch.setenv("DATABASE_URL", url)
+    command.upgrade(Config("alembic.ini"), "010")
+    engine = db.make_engine(url)
+    with engine.begin() as con:
+        for identifier, role in (("owner", "familia"), ("reviewer", "ubs")):
+            con.execute(
+                insert(db.users).values(
+                    id=identifier,
+                    role=role,
+                    name="Sintético",
+                    email=identifier + "@example.test",
+                    password_hash="not-a-login",
+                    privacy_version="test",
+                    created_at=now(),
+                )
+            )
+        con.execute(
+            insert(db.dependents).values(
+                id="person", owner_id="owner", name="Sintético", birth_date="2026-01-01", created_at=now()
+            )
+        )
+        con.execute(
+            insert(db.documents).values(
+                id="doc",
+                dependent_id="person",
+                original_name="synthetic.png",
+                stored_name="synthetic.png",
+                content_type="image/png",
+                size=1,
+                sha256="a" * 64,
+                vaccine="BCG",
+                dose_date="2026-01-02",
+                family_note="",
+                status="pendente",
+                review_note="",
+                reviewer="",
+                created_at=now(),
+            )
+        )
+        con.execute(
+            insert(db.review_assignments).values(
+                id="assignment",
+                document_id="doc",
+                reviewer_id="reviewer",
+                profile_snapshot={"old": "preserved"},
+                status="ativa",
+                created_at=now(),
+            )
+        )
+        con.execute(
+            insert(db.review_votes).values(
+                id="vote",
+                assignment_id="assignment",
+                target_type="document",
+                target_id="doc",
+                decision="aprovar",
+                note="Nota original",
+                guidance="Orientação original",
+                independence_confirmed=True,
+                evidence_hash="b" * 64,
+                created_at=now(),
+            )
+        )
+    command.upgrade(Config("alembic.ini"), "head")
+    with engine.begin() as con:
+        assert not con.exec_driver_sql("PRAGMA foreign_key_check").all()
+        assert con.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+        assert con.execute(select(db.review_votes.c.guidance)).scalar() == "Orientação original"
+        assert con.execute(select(db.review_assignments.c.review_round)).scalar() == 1
+        con.execute(
+            insert(db.review_assignments).values(
+                id="new-assignment",
+                document_id="doc",
+                reviewer_id="reviewer",
+                review_round=2,
+                profile_snapshot={"new": "snapshot"},
+                status="ativa",
+                created_at=now(),
+            )
+        )
+    from sqlalchemy.exc import DBAPIError
+
+    with pytest.raises(DBAPIError), engine.begin() as con:
+        con.execute(db.review_votes.update().values(note="alterada"))
+    engine.dispose()

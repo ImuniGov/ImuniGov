@@ -193,21 +193,26 @@ export function DocumentReview({
     [records, setRecords] = useState([]),
     [job, setJob] = useState(null),
     [audit, setAudit] = useState([]),
+    [priorVotes, setPriorVotes] = useState([]),
     [note, setNote] = useState(""),
     [guidance, setGuidance] = useState(""),
     [independent, setIndependent] = useState(false);
   const refresh = useCallback(async () => {
-    const [d, r, p, a] = await Promise.all([
+    const [d, r, p, a, h] = await Promise.all([
       api("/api/documents/" + document.id),
       api(`/api/v1/documents/${document.id}/extractions`),
       api(`/api/v1/documents/${document.id}/processing`),
       api("/api/audit?documentId=" + document.id),
+      user.role === "familia"
+        ? api(`/api/v1/documents/${document.id}/review-history`)
+        : Promise.resolve({ items: [] }),
     ]);
     setCurrent(d.item);
     setRecords(r.items);
     setJob(p.item);
     setAudit(a.items);
-  }, [document.id]);
+    setPriorVotes(h.items);
+  }, [document.id, user.role]);
   useEffect(() => {
     Promise.resolve().then(refresh).catch(onError);
     const timer = setInterval(() => refresh().catch(onError), 8000);
@@ -229,6 +234,7 @@ export function DocumentReview({
             note,
             guidance,
             independenceConfirmed: independent,
+            reviewRound: current.review.round,
           }),
         "Conferência do arquivo registrada.",
       )
@@ -267,6 +273,7 @@ export function DocumentReview({
             note,
             guidance,
             independenceConfirmed: independent,
+            reviewRound: current.review.round,
           }),
         "Decisão do registro salva.",
       )
@@ -332,6 +339,13 @@ export function DocumentReview({
               </button>
             )}
         </div>
+      )}
+      {current.review?.round > 1 && (
+        <p className="review-state">
+          Rodada {current.review.round}: a conferência foi reiniciada após uma
+          alteração de equipe. Os votos anteriores foram preservados e não
+          contam para esta rodada.
+        </p>
       )}
       {user.role === "ubs" && (
         <div className="review-state">
@@ -541,6 +555,35 @@ export function DocumentReview({
               </button>
             </fieldset>
           </form>
+        </details>
+      )}
+      {priorVotes.length > 0 && (
+        <details className="audit">
+          <summary>Conferências de rodadas anteriores</summary>
+          <p>
+            Estes votos foram preservados e não contam para a rodada atual.
+            Doses concluídas anteriormente mantêm seu histórico próprio.
+          </p>
+          {priorVotes.map((v) => (
+            <article className="feedback-entry" key={v.id}>
+              <strong>
+                Rodada {v.review_round} ·{" "}
+                {v.target_type === "document"
+                  ? "Arquivo"
+                  : `${v.vaccine} · Dose ${v.dose}`}
+              </strong>
+              <p>
+                {v.professional} · {formatDate(v.created_at)} ·{" "}
+                {v.decision === "aprovar" ? "Aprovou" : "Recusou"}
+              </p>
+              <p>{v.note}</p>
+              {v.guidance && (
+                <p>
+                  <strong>Orientação registrada:</strong> {v.guidance}
+                </p>
+              )}
+            </article>
+          ))}
         </details>
       )}
       <details className="audit">

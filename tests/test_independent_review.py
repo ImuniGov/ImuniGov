@@ -48,14 +48,19 @@ def test_refusal_is_visible_with_reason_next_step_and_author(env):
     )
     assert ubs.post(path, json=body).status_code == 422
     assert ubs.post(path, json={**body, "independenceConfirmed": False}).status_code == 422
-    assert ubs.post(path, json={**body, "guidance": "", "independenceConfirmed": True}).status_code == 400
-    response = ubs.post(path, json={**body, "independenceConfirmed": True})
+    assert (
+        ubs.post(
+            path, json={**body, "guidance": "", "reviewRound": 1, "independenceConfirmed": True}
+        ).status_code
+        == 400
+    )
+    response = ubs.post(path, json={**body, "reviewRound": 1, "independenceConfirmed": True})
     assert response.status_code == 200
     item = family.get("/api/v1/family/feedback").json()["items"][0]
     assert item["reason"] == body["note"] and item["nextStep"] == body["guidance"]
     assert item["at"] and item["reviewers"][0]["name"] == "UBS 0"
     assert other.get("/api/v1/family/feedback").json()["items"] == []
-    assert ubs.post(path, json={**body, "independenceConfirmed": True}).status_code == 409
+    assert ubs.post(path, json={**body, "reviewRound": 1, "independenceConfirmed": True}).status_code == 409
 
 
 def test_votes_are_blind_and_impediment_stops_access(env):
@@ -65,7 +70,12 @@ def test_votes_are_blind_and_impediment_stops_access(env):
     assert (
         ubs.post(
             f"/api/documents/{doc}/decision",
-            json=dict(decision="aprovado", note="Minha avaliação independente.", independenceConfirmed=True),
+            json=dict(
+                decision="aprovado",
+                note="Minha avaliação independente.",
+                reviewRound=1,
+                independenceConfirmed=True,
+            ),
         ).status_code
         == 200
     )
@@ -94,7 +104,8 @@ def test_votes_and_acceptances_cannot_be_rewritten(env):
     doc = upload(family, dependent(family))
     assert (
         ubs.post(
-            f"/api/documents/{doc}/decision", json=dict(decision="aprovado", independenceConfirmed=True)
+            f"/api/documents/{doc}/decision",
+            json=dict(decision="aprovado", reviewRound=1, independenceConfirmed=True),
         ).status_code
         == 200
     )

@@ -247,8 +247,10 @@ def run():
                 assign_waiting(con)
             last_assignment = time.monotonic()
         if time.monotonic() - last_refresh > 3600:
-            with engine.begin() as con:
-                for identifier in con.scalars(select(db.dependents.c.id)):
+            with engine.connect() as con:
+                identifiers = list(con.scalars(select(db.dependents.c.id)))
+            for identifier in identifiers:
+                with engine.begin() as con:
                     recalculate(con, identifier)
             last_refresh = time.monotonic()
         busy = process_one(engine, data)

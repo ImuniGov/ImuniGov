@@ -52,6 +52,7 @@ class Decision(Input):
     guidance: str = Field(default="", max_length=500)
     reviewer: str | None = Field(default=None, max_length=80)  # Legacy field is never trusted for identity.
     independenceConfirmed: Literal[True]
+    reviewRound: int = Field(ge=1)
 
 
 class Candidate(Input):
@@ -72,6 +73,7 @@ class RecordDecision(Input):
     note: str = Field(min_length=3, max_length=500)
     guidance: str = Field(default="", max_length=500)
     independenceConfirmed: Literal[True]
+    reviewRound: int = Field(ge=1)
 
 
 class Impediment(Input):

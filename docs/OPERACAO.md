@@ -27,7 +27,7 @@ docker compose exec web python -m backend.manage verify-reviewer --email profiss
 
 O comando não autentica certidões nem vínculos automaticamente: a conferência é responsabilidade administrativa. São necessários três profissionais com município, UF e grupos metropolitanos/RIDE/AU compatíveis em TODAS as comparações nascimento/trabalho entre pessoas. Se não houver trio completo, o arquivo aguarda. Não flexibilizar para destravar fila. Um profissional não pode cadastrar dois perfis com o mesmo registro profissional.
 
-Cada profissional declara independência. Pode declarar impedimento antes de votar; após voto, exige análise administrativa preservando o histórico. Não há fluxo automático para alterar perfil já verificado. Votos são imutáveis. Uma recusa encerra a conferência com motivo e providência; três votos positivos confirmam o arquivo ou o registro específico. Arquivo conferido e dose confirmada são operações separadas.
+Cada profissional declara independência. Pode declarar impedimento antes de votar; após voto, exige análise administrativa preservando o histórico. O comando `update-reviewer` abaixo permite alteração administrativa auditada de perfil verificado. Votos são imutáveis. Uma recusa encerra a conferência com motivo e providência; três votos positivos confirmam o arquivo ou o registro específico. Arquivo conferido e dose confirmada são operações separadas.
 
 **Migração 007:** decisões simples anteriores são reabertas para revisão tripla; os valores anteriores ficam na auditoria. Datas individuais concluídas são reavaliadas. Avaliar impacto e comunicar famílias antes de aplicar a uma instalação com dados reais. Nesta homologação os dados são sintéticos.
 
@@ -78,3 +78,30 @@ Ferramentas: `python -m backend.backup --help` e `python -m backend.manage impor
 - Cadastro e edição de pessoa exigem `representationConfirmed: true`. É declaração auditada, não comprovação automática de parentesco.
 - Sem autorização vigente, novas mutações do acompanhamento são negadas. Consulta e exportação próprias e solicitações de privacidade permanecem acessíveis. O catálogo público de vacinas não envia dados da família.
 - A migração 010 acrescenta controle de revogação sem fabricar aceite. Dados históricos conservados não voltam a ser usados pela equipe sem novo aceite vigente. Qualquer outra base legal de uso deve ser desenhada e informada em operação separada; não existe exceção administrativa oculta.
+
+## Alteração ou suspensão de profissional
+
+Use primeiro uma prévia, sem `--apply`. Informe o protocolo que identifica a conferência administrativa e o motivo:
+
+```text
+docker compose exec web python -m backend.manage update-reviewer --email profissional@dominio.br --status suspenso --verification-ref PROTOCOLO --reason "Motivo verificado"
+```
+
+A saída informa quantas conferências em andamento serão reiniciadas e quantas decisões concluídas serão preservadas, além de `expectedVersion`. Para aplicar a mesma alteração, repita os argumentos acrescentando `--apply --expected-version HASH_DA_PREVIA`. Se outro administrador alterar o perfil, a versão antiga é recusada e uma nova prévia é necessária.
+
+Para reverificar/reativar e atualizar localidades, use `--status ativo`, `--birth-city CODIGO_IBGE`, `--work-city CODIGO_IBGE`, uma nova referência e motivo. O registro profissional original permanece único e não é trocado silenciosamente. O sistema não autentica certidões, diplomas ou vínculos empregatícios por conta própria.
+
+Ao aplicar:
+
+- As sessões daquele profissional são encerradas. Suspenso não entra novamente nem acessa dados clínicos por uma sessão antiga.
+- Mudanças de perfil ficam em histórico imutável com os dados anteriores e posteriores, motivo, protocolo e horário.
+- Casos em andamento iniciam nova rodada. Votos anteriores permanecem registrados e não contam para a nova equipe. A conferência do arquivo reinicia; doses já concluídas conservam a decisão e os três profissionais da rodada original.
+- Casos concluídos não são invalidados retroativamente apenas por mudança posterior de perfil; o profissional alterado perde aquela atribuição. Se surgirem novas doses a conferir nesse arquivo, uma nova rodada é aberta antes de continuar.
+- O sorteio continua exigindo trio completo e todas as restrições geográficas. Impedimentos pessoais declarados não são esquecidos ao trocar de rodada. Sem equipe elegível, aguarda.
+- A família recebe aviso e pode consultar votos de rodadas anteriores e exportá-los. Uma tela antiga não pode lançar voto em rodada nova: decisões exigem `reviewRound` correspondente à tela consultada.
+
+As alterações de equipe, atribuições e votos usam uma trava curta no banco, antes das travas de responsável/documento, em ordem consistente. Essa serialização é adequada ao MVP e deve ser medida antes de operação de grande volume. O OCR continua fora dessa trava durante a leitura; o recálculo automático trabalha uma pessoa por transação.
+
+A migração 011 preserva atribuições e votos como rodada 1. SQLite precisa reconstruir a restrição de unicidade das atribuições; apenas durante a migração Alembic a checagem de FKs é desativada, com `foreign_key_check` ao terminar e restauração da checagem antes de devolver a conexão. Fazer backup verificado e executar migrações sem versões antigas da aplicação atendendo requisições. No PostgreSQL a restrição é alterada transacionalmente.
+
+Referência técnica: [Alembic — migrações batch e chaves estrangeiras](https://alembic.sqlalchemy.org/en/latest/batch.html#dealing-with-referencing-foreign-keys).

@@ -41,6 +41,7 @@ def env(tmp_path, monkeypatch):
         with Operations.context(MigrationContext.configure(con)):
             importlib.import_module("backend.migrations.versions.002_audit_immutable").upgrade()
             importlib.import_module("backend.migrations.versions.008_immutable_votes").upgrade()
+            importlib.import_module("backend.migrations.versions.011_review_rounds").install_history_guard()
             if con.dialect.name == "postgresql":
                 con.exec_driver_sql(
                     "CREATE TRIGGER acceptance_append_only BEFORE UPDATE OR DELETE ON privacy_acceptances FOR EACH ROW EXECUTE FUNCTION deny_audit_mutation()"
@@ -50,6 +51,7 @@ def env(tmp_path, monkeypatch):
                     con.exec_driver_sql(
                         f"CREATE TRIGGER acceptance_no_{action.lower()} BEFORE {action} ON privacy_acceptances BEGIN SELECT RAISE(ABORT,'acceptance is append-only'); END"
                     )
+        con.execute(insert(db.review_gate).values(id="roster", revision=1))
         seed_rules(con)
     app = create_app(engine, tmp_path)
     clients = []

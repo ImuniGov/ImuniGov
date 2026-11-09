@@ -42,6 +42,14 @@ def session_user(request: Request):
     if request.method not in ("GET", "HEAD", "OPTIONS"):
         if not secrets.compare_digest(request.headers.get("X-CSRF-Token", ""), row["csrf"]):
             raise HTTPException(403, "Sessão de formulário inválida. Atualize a página.")
+    if row["role"] == "ubs":
+        with request.app.state.engine.connect() as con:
+            if con.scalar(
+                select(db.reviewer_profiles.c.id).where(
+                    db.reviewer_profiles.c.user_id == row["id"], db.reviewer_profiles.c.active.is_(False)
+                )
+            ):
+                raise HTTPException(401, "Seu acesso profissional está suspenso.")
     result = dict(row)
     result["_write"] = request.method not in ("GET", "HEAD", "OPTIONS")
     if row["role"] == "familia":

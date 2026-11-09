@@ -143,6 +143,15 @@ def main():
     profile.add_argument("--work-city", required=True)
     profile.add_argument("--verification-ref", required=True)
 
+    change = sub.add_parser("update-reviewer")
+    change.add_argument("--email", required=True)
+    change.add_argument("--status", choices=["ativo", "suspenso"], required=True)
+    change.add_argument("--birth-city")
+    change.add_argument("--work-city")
+    change.add_argument("--verification-ref", required=True)
+    change.add_argument("--reason", required=True)
+    change.add_argument("--expected-version")
+    change.add_argument("--apply", action="store_true")
     sub.add_parser("privacy-requests")
     answer = sub.add_parser("answer-privacy")
     answer.add_argument("--id", required=True)
@@ -169,13 +178,14 @@ def main():
         print(json.dumps(sync_catalog(os.environ.get("IMUNIGUI_DATA_DIR", "data")), ensure_ascii=False))
     elif args.action == "verify-reviewer":
         from .geography import location
-        from .reviews import assign_waiting
+        from .reviews import assign_waiting, lock_roster
 
         location(args.birth_city)
         location(args.work_city)
         if len(args.verification_ref.strip()) < 3 or len(args.professional_id.strip()) < 3:
             raise ValueError("Identificação profissional e referência da verificação obrigatórias.")
         with db.make_engine().begin() as con:
+            lock_roster(con)
             user_id = con.execute(
                 select(db.users.c.id).where(db.users.c.email == args.email.lower(), db.users.c.role == "ubs")
             ).scalar_one()
@@ -200,6 +210,22 @@ def main():
             )
             assign_waiting(con)
         print("Perfil verificado e cadernetas aguardando equipe reavaliadas.")
+    elif args.action == "update-reviewer":
+        from .reviews import change_reviewer
+
+        with db.make_engine().begin() as con:
+            result = change_reviewer(
+                con,
+                args.email,
+                args.status == "ativo",
+                args.birth_city,
+                args.work_city,
+                args.verification_ref,
+                args.reason,
+                apply=args.apply,
+                expected_version=args.expected_version,
+            )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     elif args.action == "privacy-requests":
         with db.make_engine().connect() as con:
             print(
@@ -245,7 +271,9 @@ def main():
             identifier = uid()
             con.execute(insert(db.rules).values(id=identifier, active=True, created_at=now(), **data))
             event(con, None, "rule_set", identifier, "regras_ativadas_administrativamente", data["version"])
-            for dependent_id in con.scalars(select(db.dependents.c.id)):
+            for dependent_id in con.scalars(
+                select(db.dependents.c.id).order_by(db.dependents.c.owner_id, db.dependents.c.id)
+            ):
                 recalculate(con, dependent_id)
         print("Nova versão de regras ativada e casos reavaliados.")
     elif args.action == "create-user":

@@ -49,7 +49,8 @@ def test_auth_permissions_and_csrf(env):
     assert acs.get(f"/api/documents/{doc}/file").status_code == 403
     assert (
         a.post(
-            f"/api/documents/{doc}/decision", json={"decision": "aprovado", "independenceConfirmed": True}
+            f"/api/documents/{doc}/decision",
+            json={"decision": "aprovado", "reviewRound": 1, "independenceConfirmed": True},
         ).status_code
         == 403
     )
@@ -117,13 +118,19 @@ def test_upload_validation_and_decision_identity(env):
     assert family.delete(f"/api/dependents/{person}").status_code == 409
     assert (
         ubs.post(
-            f"/api/documents/{doc}/decision", json={"decision": "rejeitado", "independenceConfirmed": True}
+            f"/api/documents/{doc}/decision",
+            json={"decision": "rejeitado", "reviewRound": 1, "independenceConfirmed": True},
         ).status_code
         == 400
     )
     r = ubs.post(
         f"/api/documents/{doc}/decision",
-        json={"decision": "aprovado", "reviewer": "Impostor", "independenceConfirmed": True},
+        json={
+            "decision": "aprovado",
+            "reviewer": "Impostor",
+            "reviewRound": 1,
+            "independenceConfirmed": True,
+        },
     )
     assert r.status_code == 200 and r.json()["item"]["status"] == "pendente"
     assert "Impostor" not in r.json()["item"]["reviewer"]
@@ -131,7 +138,8 @@ def test_upload_validation_and_decision_identity(env):
         assert (
             client("ubs", index)
             .post(
-                f"/api/documents/{doc}/decision", json={"decision": "aprovado", "independenceConfirmed": True}
+                f"/api/documents/{doc}/decision",
+                json={"decision": "aprovado", "reviewRound": 1, "independenceConfirmed": True},
             )
             .status_code
             == 200
@@ -140,7 +148,8 @@ def test_upload_validation_and_decision_identity(env):
     assert final["status"] == "aprovado" and final["review"]["approvals"] == 3
     assert (
         ubs.post(
-            f"/api/documents/{doc}/decision", json={"decision": "aprovado", "independenceConfirmed": True}
+            f"/api/documents/{doc}/decision",
+            json={"decision": "aprovado", "reviewRound": 1, "independenceConfirmed": True},
         ).status_code
         == 409
     )
@@ -193,7 +202,12 @@ def test_full_review_pending_guidance_outreach_notification(env):
     assert (
         ubs.post(
             decision,
-            json={"decision": "validado", "note": "Conferido na evidência.", "independenceConfirmed": True},
+            json={
+                "decision": "validado",
+                "note": "Conferido na evidência.",
+                "reviewRound": 1,
+                "independenceConfirmed": True,
+            },
         ).status_code
         == 409
     )
@@ -279,10 +293,16 @@ def test_rule_intervals():
 
 
 def approve_document(client, doc):
+    current = client("ubs", 0).get(f"/api/documents/{doc}").json()["item"]["review"]["round"]
     for index in range(3):
         response = client("ubs", index).post(
             f"/api/documents/{doc}/decision",
-            json={"decision": "aprovado", "note": "Conferido no original.", "independenceConfirmed": True},
+            json={
+                "decision": "aprovado",
+                "note": "Conferido no original.",
+                "reviewRound": current,
+                "independenceConfirmed": True,
+            },
         )
         assert response.status_code == 200, response.text
         assert response.json()["item"]["status"] == ("aprovado" if index == 2 else "pendente")
@@ -292,7 +312,12 @@ def approve_record(client, identifier):
     for index in range(3):
         response = client("ubs", index).post(
             f"/api/v1/vaccinations/{identifier}/decision",
-            json={"decision": "validado", "note": "Conferido no original.", "independenceConfirmed": True},
+            json={
+                "decision": "validado",
+                "note": "Conferido no original.",
+                "reviewRound": 1,
+                "independenceConfirmed": True,
+            },
         )
         assert response.status_code == 200, response.text
         assert response.json()["item"]["status"] == ("validado" if index == 2 else "a_conferir")
