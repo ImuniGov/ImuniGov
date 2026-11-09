@@ -15,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    false,
     true,
 )
 
@@ -99,6 +100,7 @@ documents = table(
     text("reviewed_at"),
     text("reviewer", nullable=False),
     Column("review_round", Integer, nullable=False, server_default="1"),
+    Column("review_hold", Boolean, nullable=False, server_default=false()),
     CheckConstraint("status IN ('pendente','aprovado','rejeitado')"),
 )
 audit = table(
@@ -256,6 +258,25 @@ reviewer_changes = table(
     Column("after", JSON, nullable=False),
     text("reason", nullable=False),
     text("verification_ref", nullable=False),
+    text("created_at", nullable=False),
+)
+
+review_incidents = table(
+    "review_incidents",
+    text("document_id", ForeignKey("documents.id"), nullable=False),
+    text("assignment_id", ForeignKey("review_assignments.id"), nullable=False, unique=True),
+    text("reporter_id", ForeignKey("users.id"), nullable=False),
+    Column("source_round", Integer, nullable=False),
+    text("reason", nullable=False),
+    text("origin", nullable=False),
+    text("administrative_ref", nullable=False),
+    text("created_at", nullable=False),
+)
+review_resolutions = table(
+    "review_resolutions",
+    text("incident_id", ForeignKey("review_incidents.id"), nullable=False, unique=True),
+    text("administrative_ref", nullable=False),
+    text("note", nullable=False),
     text("created_at", nullable=False),
 )
 

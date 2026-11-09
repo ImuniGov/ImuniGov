@@ -1,5 +1,69 @@
 # Kanban do ImuniGuia
 
+Atualizado: 2026-11-08 (America/Cuiaba). Branch: **homologacao**. **Meta de implementação pausada pelo usuário.** “Em andamento” indica entrega parcial aberta; não significa trabalho autônomo continuando durante a pausa.
+
+## Auditoria atual
+
+Lista completa e critérios por issue: [docs/STATUS_ENTREGA.md](docs/STATUS_ENTREGA.md). Esta classificação substitui os estados do quadro anterior preservado no histórico abaixo.
+
+**29 concluídas e 20 em andamento.** Dez concluídas são repetições conferidas; a nova #49 registra falha de restauração. Conclusão é do escopo da issue, não certificação clínica/jurídica nem produto pronto para dados reais.
+
+## Concluído
+
+| Cartão / recorte concluído | Issues | Evidência |
+| --- | --- | --- |
+| K00/K01 · diagnóstico, estrutura e módulo integrado | #23, #42 | React/API, autorização e CI d4e1757 aprovada. |
+| K03/K04 · conta, sessão e pessoas vinculadas | #2, #3, #4, #20 | Cadastro, isolamento, autenticação e negativas automatizadas; prova documental adicional segue K20. |
+| K05 · auditoria | #21 | Autor/data/alvo, histórico e proteção contra alteração comum; operação de privacidade segue aberta. |
+| K06 · histórico e retorno da UBS | #9, #12 | Estados distintos, motivos e providências; três contas fictícias no navegador. |
+| K07 · sugestões sempre a conferir | #6 | OCR não confirma doses; conferência por profissionais. Parser amplo segue aberto. |
+| K08 · decisões por arquivo e dose | #14 | Autorização, recálculo, motivos, auditoria e concorrência testados. Orientações identificáveis seguem #15. |
+| K09 · motor versionado no recorte de três vacinas | #7 | Idade/intervalos/fonte; não equivale a calendário integral. |
+| K10 · avisos internos | #11 | Persistência, leitura e controle de duplicação; entrega push externa segue #44. |
+| K11 · busca ativa ACS | #16, #17, #18 | Fila mínima, motivo de prioridade e ações vinculadas com histórico. |
+| K12/K13 · testes e documentação base | #24, #25 | CI reproduzível, operação e guias; diagrama específico segue #19. |
+| K14 · demonstração Docker escolhida pelo usuário | #26 | Execução local dos três perfis documentada; não há hospedagem pública. |
+| K15 · duplicatas equivalentes conferidas | #27, #29, #30, #31, #34, #35, #36, #37, #38, #39 | Critérios comparados com #9/#7/#6/#4/#3/#2; escopo e histórico preservados. |
+
+## Em andamento — implementação pausada
+
+Responsável por continuidade: mantenedor/IA após retomada; validações clínicas/operacionais dependem das equipes responsáveis. Critérios completos e dependências em STATUS_ENTREGA e nas issues.
+
+| Cartão | Issues | Próximo passo / critério restante |
+| --- | --- | --- |
+| K02 | #19 | Diagrama e decisões da modelagem. |
+| K02.1 | #49 | Corrigir restauração em banco migrado; validar PostgreSQL + arquivos + hashes sem sobrescrever dados. |
+| K05/K20 | #22, #47 | Canal funcional, retenção/eliminação, representação, direitos e incidentes; aceitar termos não substitui operação. |
+| K06/K16 | #1, #40, #41, #43 | Testar envio/câmera/PWA em Android/iPhone reais; acesso HTTPS fora do computador. |
+| K06 | #13 | Contexto das pendências na revisão UBS. |
+| K07/K19 | #5, #32, #33, #46 | Ampliar parser/regras além de BCG/Penta/VIP e revisar clinicamente. |
+| K08 | #15 | Nome identificável de quem libera orientações à família. |
+| K09/K09.1 | #8, #10, #28 | Separar pendências atuais de histórico e motivos resolvidos. K09.1 ainda só planejado. |
+| K17 | #44 | Entrega real de push autorizado e validação nos aparelhos. |
+| K18/K18.2 | #45 | Impedimento após voto: rascunho só de esquema 012, sem endpoints/comando/efeitos. Preservar rodadas e testes existentes. |
+| K21 | #48 | Textos/contexto, teclado/leitor de tela e testes com cidadãos/UBS/ACS. |
+
+## Evidências atuais
+
+Base d4e1757: [CI aprovada](https://github.com/ImuniGov/ImuniGov/actions/runs/42555673454), três jobs, 49 testes Docker/PostgreSQL e 4 PWA. Auditoria do rascunho: 46 testes SQLite aprovados, 3 OCR pulados por dependências locais; lint/formatação aprovados. Migração 012 aplicada em SQLite temporário. Falha de restauração #49 reproduzida no destino migrado sem pacientes. Não afirmar testes de fluxo pós-voto inexistente nem homologação em aparelhos reais.
+
+## Sincronização remota
+
+Atualização de estados e labels de issues preparada nesta etapa; confirmação remota será registrada após execução. Acesso de issues/push funciona. **GitHub Projects: colunas não sincronizadas**, por falta de `read:project`/`project`; labels de issues e este arquivo são superfícies distintas. Nenhuma alteração de permissões foi feita.
+
+## Histórico desta auditoria
+
+| Data | Passo | Evidência / restante |
+| --- | --- | --- |
+| 2026-11-08 | Meta pausada; somente auditoria e salvamento | Rascunho K18.2 mantido como incompleto. |
+| 2026-11-08 | 48 issues revisadas, duplicatas comparadas e #49 criada | 29 concluídas pelo escopo, 20 abertas; histórico preservado. |
+| 2026-11-08 | Falha de restauração documentada | Linha inicial review_gate incompatível com exigência de banco totalmente vazio; não corrigida nesta etapa. |
+
+<details>
+<summary>Histórico do quadro anterior — estados abaixo substituídos pela auditoria acima</summary>
+
+# Kanban do ImuniGuia
+
 Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O quadro registra implementação e aceite restante; código publicado não implica aprovação clínica, jurídica ou operação com dados reais.
 
 ## Regras
@@ -9,6 +73,12 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 - Concluído exige todos os critérios e evidências atuais; não usar testes antigos como prova de código posterior.
 - Preservar escopo e histórico das issues. Duplicatas não são encerradas automaticamente.
 - GitHub Projects e este arquivo são superfícies distintas. Não declarar sincronização de colunas sem leitura de confirmação.
+
+## Em andamento
+
+**K18.2 · #45 — impedimento após voto.** Registrar ocorrência por caderneta, preservar votos, suspender conferência e retirar confirmações daquela evidência da avaliação até nova revisão. Administração registra análise e libera apenas nova equipe independente, sem aprovar doses por conta própria. Testar privacidade, duplicidade, rodadas, lembretes e concorrência.
+
+**K09.1 · #10/#48 — pendências resolvidas.** Separar abertas de histórico expansível, preservando motivo anterior, fonte, data e orientações.
 
 ## Último avanço de revisão independente
 
@@ -103,3 +173,6 @@ Código publicado: [57f4e3c](https://github.com/ImuniGov/ImuniGov/commit/57f4e3c
 | 2026-11-08 | K18.1 em revisão | Rodadas, suspensão e alteração auditada; homologação com três contas no navegador e testes de concorrência. CI d4e1757 aprovada na execução 42555673454. |
 
 | 2026-11-08 | K18.1 validado tecnicamente | CI 42555673454 aprovada; três contas conferidas pelo navegador; CLI com prévia/versão e histórico anterior exercitada com dados fictícios. K18.2 permanece aberto. |
+
+
+</details>

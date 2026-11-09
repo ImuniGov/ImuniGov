@@ -1,5 +1,7 @@
 # Guia de continuidade para IA
 
+> **Estado vigente da auditoria:** meta de implementação pausada pelo usuário. Não retomar desenvolvimento automaticamente. Lista completa em [docs/STATUS_ENTREGA.md](docs/STATUS_ENTREGA.md): 29 issues concluídas pelo respectivo escopo e 20 abertas, incluindo #49 (restauração falha em banco migrado). K18.2 tem somente rascunho de esquema/migração 012, sem fluxo implementado. As prioridades abaixo são para quando houver retomada. Docker local está entregue; HTTPS público, aparelhos reais, operação de privacidade, cobertura clínica ampliada e acessibilidade/usabilidade ainda precisam de validação. A confirmação remota desta auditoria será registrada em KANBAN.md.
+
 Atualizado em 2026-11-08 (America/Cuiaba). Ler AGENTS.md, roadmap.md e KANBAN.md antes de trabalhar. A branch de entrega é `homologacao`; `main` e `teste` são referências históricas. O diagnóstico inicial está nos commits anteriores, especialmente f6dd262.
 
 ## Estado técnico
