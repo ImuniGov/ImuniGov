@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:pwa": "node --test tests/pwa.test.mjs",
+    "format": "prettier --write src public/sw.js public/offline.css tests/pwa.test.mjs",
+    "format:check": "prettier --check src public/sw.js public/offline.css tests/pwa.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.63.0",
@@ -19,6 +22,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint": "^1.89.0",
+    "prettier": "^3.9.10",
     "vite": "^8.3.5"
   }
 }

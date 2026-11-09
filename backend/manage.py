@@ -25,12 +25,14 @@ def migrate():
 
 
 def create_user(email, name, role, password):
-    from .schemas import Register
+    from .schemas import Login
 
-    body = Register(email=email, name=name, password=password, consent=True)
+    body = Login(email=email, password=password)
+    if len(password) < 12 or not 2 <= len(name.strip()) <= 80:
+        raise ValueError("Nome inválido ou senha com menos de 12 caracteres.")
     user = dict(
         id=uid(),
-        name=body.name,
+        name=name.strip(),
         email=body.email,
         role=role,
         password_hash=hasher.hash(body.password),
@@ -133,6 +135,18 @@ def main():
     parser = argparse.ArgumentParser(description="Administração ImuniGuia")
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("migrate")
+    sub.add_parser("sync-sources")
+    profile = sub.add_parser("verify-reviewer")
+    profile.add_argument("--email", required=True)
+    profile.add_argument("--professional-id", required=True)
+    profile.add_argument("--birth-city", required=True)
+    profile.add_argument("--work-city", required=True)
+    profile.add_argument("--verification-ref", required=True)
+
+    sub.add_parser("privacy-requests")
+    answer = sub.add_parser("answer-privacy")
+    answer.add_argument("--id", required=True)
+    answer.add_argument("--response", required=True)
     rule_import = sub.add_parser("activate-rules")
     rule_import.add_argument("file")
     user = sub.add_parser("create-user")
@@ -149,6 +163,75 @@ def main():
     if args.action == "migrate":
         migrate()
         print("Migrações aplicadas.")
+    elif args.action == "sync-sources":
+        from .sources import sync_catalog
+
+        print(json.dumps(sync_catalog(os.environ.get("IMUNIGUI_DATA_DIR", "data")), ensure_ascii=False))
+    elif args.action == "verify-reviewer":
+        from .geography import location
+        from .reviews import assign_waiting
+
+        location(args.birth_city)
+        location(args.work_city)
+        if len(args.verification_ref.strip()) < 3 or len(args.professional_id.strip()) < 3:
+            raise ValueError("Identificação profissional e referência da verificação obrigatórias.")
+        with db.make_engine().begin() as con:
+            user_id = con.execute(
+                select(db.users.c.id).where(db.users.c.email == args.email.lower(), db.users.c.role == "ubs")
+            ).scalar_one()
+            if con.execute(
+                select(db.reviewer_profiles.c.id).where(db.reviewer_profiles.c.user_id == user_id)
+            ).first():
+                raise ValueError("Perfil já verificado; alteração exige análise das atribuições existentes.")
+            identifier = uid()
+            con.execute(
+                insert(db.reviewer_profiles).values(
+                    id=identifier,
+                    user_id=user_id,
+                    professional_id=args.professional_id.strip(),
+                    birth_city_code=args.birth_city,
+                    work_city_code=args.work_city,
+                    verified_at=now(),
+                    verification_ref=args.verification_ref.strip(),
+                )
+            )
+            event(
+                con, None, "reviewer_profile", identifier, "verificacao_administrativa", args.verification_ref
+            )
+            assign_waiting(con)
+        print("Perfil verificado e cadernetas aguardando equipe reavaliadas.")
+    elif args.action == "privacy-requests":
+        with db.make_engine().connect() as con:
+            print(
+                json.dumps(
+                    [
+                        dict(r)
+                        for r in con.execute(
+                            select(db.privacy_requests).where(db.privacy_requests.c.status == "recebida")
+                        ).mappings()
+                    ],
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+    elif args.action == "answer-privacy":
+        if not 3 <= len(args.response.strip()) <= 2000:
+            raise ValueError("Informe uma resposta entre 3 e 2000 caracteres.")
+        with db.make_engine().begin() as con:
+            row = (
+                con.execute(select(db.privacy_requests).where(db.privacy_requests.c.id == args.id))
+                .mappings()
+                .one()
+            )
+            if row["status"] != "recebida":
+                raise ValueError("Solicitação já respondida; histórico preservado.")
+            con.execute(
+                update(db.privacy_requests)
+                .where(db.privacy_requests.c.id == args.id)
+                .values(status="respondida", response=args.response.strip(), answered_at=now())
+            )
+            event(con, None, "privacy_request", args.id, "resposta_administrativa", args.response)
+        print("Resposta registrada. A execução de correção ou eliminação deve ser verificada separadamente.")
     elif args.action == "activate-rules":
         from .schemas import RuleSet
 

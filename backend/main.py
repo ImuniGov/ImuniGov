@@ -96,6 +96,12 @@ def create_app(engine=None, data_dir=None):
     from .routes import router
 
     app.include_router(router)
+    from .privacy import router as privacy_router
+
+    app.include_router(privacy_router)
+    from .sources import router as source_router
+
+    app.include_router(source_router)
     from .push import router as push_router
 
     app.include_router(push_router)

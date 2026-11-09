@@ -1,6 +1,7 @@
 import io
 from datetime import date
 
+from conftest import acceptance
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import select
@@ -43,7 +44,12 @@ def test_auth_permissions_and_csrf(env):
     assert b.get(f"/api/v1/dependents/{person}/vaccinations").status_code == 404
     assert acs.get("/api/documents").status_code == 403
     assert acs.get(f"/api/documents/{doc}/file").status_code == 403
-    assert a.post(f"/api/documents/{doc}/decision", json={"decision": "aprovado"}).status_code == 403
+    assert (
+        a.post(
+            f"/api/documents/{doc}/decision", json={"decision": "aprovado", "independenceConfirmed": True}
+        ).status_code
+        == 403
+    )
     old_csrf = a.headers.pop("X-CSRF-Token")
     assert (
         a.post("/api/dependents", json={"name": "Outra pessoa", "birthDate": "2026-02-01"}).status_code == 403
@@ -70,7 +76,7 @@ def test_registration_validates_and_never_grants_staff(env):
     engine, root, app, client = env
     c = TestClient(app)
     data = dict(
-        name="Pessoa Sintética", email="x@example.test", password="Uma-senha-longa-2026", consent=True
+        name="Pessoa Sintética", email="x@example.test", password="Uma-senha-longa-2026", **acceptance()
     )
     assert c.post("/api/v1/auth/register", json={**data, "role": "ubs"}).status_code == 422
     assert c.post("/api/v1/auth/register", json={**data, "consent": False}).status_code == 422
@@ -78,7 +84,7 @@ def test_registration_validates_and_never_grants_staff(env):
     assert c.post("/api/v1/auth/register", json=data).status_code == 201
     assert c.post("/api/v1/auth/register", json=data).status_code == 409
     with engine.connect() as con:
-        user = con.execute(select(db.users)).mappings().one()
+        user = con.execute(select(db.users).where(db.users.c.email == "x@example.test")).mappings().one()
         assert user["password_hash"].startswith("$argon2")
         assert user["role"] == "familia"
 
@@ -106,18 +112,46 @@ def test_upload_validation_and_decision_identity(env):
     doc = upload(family, person)
     assert family.get(f"/api/documents/{doc}/file").content == image()
     assert family.delete(f"/api/dependents/{person}").status_code == 409
-    assert ubs.post(f"/api/documents/{doc}/decision", json={"decision": "rejeitado"}).status_code == 400
-    r = ubs.post(f"/api/documents/{doc}/decision", json={"decision": "aprovado", "reviewer": "Impostor"})
-    assert r.status_code == 200 and r.json()["item"]["reviewer"] == "UBS"
-    assert ubs.post(f"/api/documents/{doc}/decision", json={"decision": "aprovado"}).status_code == 409
+    assert (
+        ubs.post(
+            f"/api/documents/{doc}/decision", json={"decision": "rejeitado", "independenceConfirmed": True}
+        ).status_code
+        == 400
+    )
+    r = ubs.post(
+        f"/api/documents/{doc}/decision",
+        json={"decision": "aprovado", "reviewer": "Impostor", "independenceConfirmed": True},
+    )
+    assert r.status_code == 200 and r.json()["item"]["status"] == "pendente"
+    assert "Impostor" not in r.json()["item"]["reviewer"]
+    for index in (1, 2):
+        assert (
+            client("ubs", index)
+            .post(
+                f"/api/documents/{doc}/decision", json={"decision": "aprovado", "independenceConfirmed": True}
+            )
+            .status_code
+            == 200
+        )
+    final = family.get(f"/api/documents/{doc}").json()["item"]
+    assert final["status"] == "aprovado" and final["review"]["approvals"] == 3
+    assert (
+        ubs.post(
+            f"/api/documents/{doc}/decision", json={"decision": "aprovado", "independenceConfirmed": True}
+        ).status_code
+        == 409
+    )
     assert family.get(f"/api/v1/dependents/{person}/vaccinations").json()["items"] == []
     audit = family.get("/api/audit", params={"documentId": doc}).json()["items"]
-    assert any(a["event"] == "aprovado" and a["actor_id"] for a in audit)
+    assert any(a["event"] == "revisao_tripla_aprovado" and a["actor_id"] for a in audit)
 
 
 def test_full_review_pending_guidance_outreach_notification(env):
     engine, root, app, client = env
     family, ubs, acs, other = client(), client("ubs"), client("acs"), client(index=1)
+    with engine.begin() as con:
+        active = con.execute(select(db.rules)).mappings().one()
+        con.execute(db.rules.update().values(rules=[r for r in active["rules"] if r["vaccine"] == "BCG"]))
     person = dependent(family)
     doc = upload(family, person)
     pending = next(
@@ -126,16 +160,16 @@ def test_full_review_pending_guidance_outreach_notification(env):
         if p["vaccine"] == "BCG"
     )
     cases = acs.get("/api/v1/acs/cases").json()["items"]
-    assert any(c["id"] == pending["id"] for c in cases)
+    assert any(c["id"] == person for c in cases)
     assert all("vaccine" not in c and "fileUrl" not in c and "birth_date" not in c for c in cases)
-    path = f"/api/v1/acs/cases/{pending['id']}/actions"
+    path = f"/api/v1/acs/cases/{person}/actions"
     assert (
         acs.post(
             path,
             json={
                 "kind": "telefone",
                 "note": "Contato sintético realizado.",
-                "contactDate": date.today().isoformat(),
+                "contactDate": "2026-11-08",
             },
         ).status_code
         == 201
@@ -154,15 +188,15 @@ def test_full_review_pending_guidance_outreach_notification(env):
     ).json()["item"]
     decision = f"/api/v1/vaccinations/{record['id']}/decision"
     assert (
-        ubs.post(decision, json={"decision": "validado", "note": "Conferido na evidência."}).status_code
+        ubs.post(
+            decision,
+            json={"decision": "validado", "note": "Conferido na evidência.", "independenceConfirmed": True},
+        ).status_code
         == 409
     )
-    assert ubs.post(f"/api/documents/{doc}/decision", json={"decision": "aprovado"}).status_code == 200
-    assert (
-        ubs.post(decision, json={"decision": "validado", "note": "Conferido na evidência."}).status_code
-        == 200
-    )
-    assert all(c["id"] != pending["id"] for c in acs.get("/api/v1/acs/cases").json()["items"])
+    approve_document(client, doc)
+    approve_record(client, record["id"])
+    assert all(c["id"] != person for c in acs.get("/api/v1/acs/cases").json()["items"])
     assert len(acs.get(path).json()["items"]) == 1  # History survives resolution.
     notes = family.get("/api/v1/notifications").json()["items"]
     assert notes
@@ -239,3 +273,23 @@ def test_rule_intervals():
     assert [x["id"] for x in evaluate("2026-01-01", records, ruleset, date(2026, 8, 1))] == ["b"]
     records[1]["dose_date"] = "2026-04-01"
     assert not evaluate("2026-01-01", records, ruleset, date(2026, 8, 1))
+
+
+def approve_document(client, doc):
+    for index in range(3):
+        response = client("ubs", index).post(
+            f"/api/documents/{doc}/decision",
+            json={"decision": "aprovado", "note": "Conferido no original.", "independenceConfirmed": True},
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["item"]["status"] == ("aprovado" if index == 2 else "pendente")
+
+
+def approve_record(client, identifier):
+    for index in range(3):
+        response = client("ubs", index).post(
+            f"/api/v1/vaccinations/{identifier}/decision",
+            json={"decision": "validado", "note": "Conferido no original.", "independenceConfirmed": True},
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["item"]["status"] == ("validado" if index == 2 else "a_conferir")

@@ -4,10 +4,11 @@ import sqlite3
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select, text
 
 from backend import db
 from backend.backup import backup, restore
+from backend.domain import now
 from backend.manage import import_legacy
 
 
@@ -76,3 +77,76 @@ def test_migrate_legacy_backup_restore(tmp_path, monkeypatch):
         import_legacy(legacy, engine, target)
     engine.dispose()
     restored_engine.dispose()
+
+
+def test_outreach_upgrade_preserves_prior_contacts(tmp_path, monkeypatch):
+    url = "sqlite:///" + str(tmp_path / "upgrade.sqlite3")
+    monkeypatch.setenv("DATABASE_URL", url)
+    command.upgrade(Config("alembic.ini"), "004")
+    engine = db.make_engine(url)
+    with engine.begin() as con:
+        con.execute(
+            insert(db.users).values(
+                id="acs",
+                name="ACS sintético",
+                email="acs@example.test",
+                password_hash="not-a-login-hash",
+                role="acs",
+                created_at=now(),
+                privacy_version="test",
+            )
+        )
+        con.execute(
+            insert(db.dependents).values(
+                id="dep", name="Sintético", owner_id=None, birth_date="2026-01-01", created_at=now()
+            )
+        )
+        con.execute(
+            insert(db.rules).values(
+                id="rules",
+                version="test",
+                source="https://example.test",
+                valid_from="2026-01-01",
+                valid_until="2026-12-31",
+                rules=[],
+                active=True,
+                created_at=now(),
+            )
+        )
+        con.execute(
+            insert(db.pendings).values(
+                id="pending",
+                dependent_id="dep",
+                rule_set_id="rules",
+                rule_id="one",
+                vaccine="BCG",
+                dose=1,
+                reason="Sintético",
+                status="aberta",
+                updated_at=now(),
+            )
+        )
+        con.execute(
+            text(
+                "INSERT INTO outreach_actions(id,pending_id,author_id,kind,note,contact_date,created_at) VALUES(:id,:p,:a,:k,:n,:d,:t)"
+            ),
+            {
+                "id": "old-contact",
+                "p": "pending",
+                "a": "acs",
+                "k": "visita",
+                "n": "Contato antigo preservado.",
+                "d": "2026-11-08",
+                "t": now(),
+            },
+        )
+    command.upgrade(Config("alembic.ini"), "head")
+    with engine.connect() as con:
+        contact = con.execute(select(db.actions)).mappings().one()
+        assert (
+            contact["case_id"] == "dep"
+            and contact["pending_id"] == "pending"
+            and contact["note"] == "Contato antigo preservado."
+        )
+        assert con.execute(select(db.outreach_cases.c.status)).scalar_one() == "aberta"
+    engine.dispose()

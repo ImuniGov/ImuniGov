@@ -1,35 +1,39 @@
 # ImuniGuia
 
-Projeto de apoio ao acompanhamento vacinal: a família envia a caderneta, a UBS confere evidências e registros e o ACS acompanha os casos de busca ativa. OCR e regras automáticas devem produzir informações a conferir e possíveis pendências; a confirmação depende de profissional autorizado.
+Aplicativo de acompanhamento de vacinação para famílias, UBS e agentes comunitários. Integração na branch **homologacao**, com interface mobile e PWA, API privada, PostgreSQL e execução local com Docker.
 
-## Planejamento e continuidade
+## Executar
 
-- [Roadmap e diagnóstico das branches](roadmap.md): o que existe, o que falta, marcos e rastreabilidade das 42 issues.
-- [Kanban versionado](KANBAN.md): trabalho atual, dependências, evidências e próximos passos.
-- [Guia para IA](GUIA_IA.md): como retomar, preservar contratos e verificar cada entrega.
-- [Instruções do projeto](AGENTS.md): obrigação de atualizar o kanban em cada etapa.
-
-## Estado da homologacao
-
-Esta branch nasce da main 080b34c e adiciona planejamento. A configuração do frontend usa React e Vite, mas os fontes de src/main.jsx e o favicon referidos no HTML estão ausentes na revisão analisada. O primeiro cartão, K01, trata da recuperação e integração.
-
-A branch [teste](https://github.com/ImuniGov/ImuniGov/tree/025fbed4d44e6ab48b982b0a9973fe78e34acd09) contém o protótipo local funcional de dependentes, upload, fila, decisão e auditoria, em Python/SQLite, com interface temporária e Docker. Esse código ainda precisa ser integrado. O protótipo não tem autenticação; arquivo aprovado não equivale a dose confirmada.
-
-Stack alvo documentada em teste: React/TypeScript, FastAPI, PostgreSQL, armazenamento privado e processamento assíncrono. Isso descreve o destino planejado, não a implementação disponível nesta branch.
-
-## Desenvolvimento
-
-Depois de recuperar os fontes ausentes:
+Com Docker Desktop iniciado, no PowerShell:
 
 ```powershell
-npm ci
-npm run lint
-npm run build
-npm run dev
+./scripts/setup.ps1
 ```
 
-O Vite está configurado para porta 3000. Não há script de testes no package.json consultado. O build não foi executado nesta entrega de documentação. Para executar o protótipo em um checkout de teste, consultar as instruções de Python/Docker no [GUIA_IA.md](GUIA_IA.md) e no README daquela branch.
+Abra http://localhost:4173. O script gera configuração local com senha aleatória do banco. Não envie `.env`, documentos ou bancos ao GitHub. Para funcionamento instalável em celular fora do computador, a implantação precisa de origem HTTPS real.
 
-## Contribuição
+## Fluxos disponíveis
 
-Ler AGENTS.md, escolher o próximo cartão disponível, conferir sua issue e atualizar KANBAN.md antes de implementar e a cada avanço. Registrar validação e trabalho restante no mesmo commit da etapa. Não concluir issues parciais nem consolidar duplicatas sem conferir escopo e vínculos.
+- **Família:** conta própria, pessoas da família, prévia e envio de foto/PDF, andamento da conferência, retorno da UBS com motivo e providência, registros, orientações, próximas doses e avisos privados.
+- **UBS:** conta administrativa e perfil profissional verificado; sorteio de três profissionais com separação geográfica cruzada; conferência do arquivo e de cada dose; recusa justificada, impedimentos, transcrição manual, orientações e datas individuais.
+- **ACS:** lista de famílias para contato, prioridade, registro de ações e histórico preservado, sem acesso ao arquivo clínico.
+- **Privacidade:** termos e autorização específica no cadastro, versão/hash e horário registrados, exportação própria, canal e solicitações de direitos na conta.
+
+OCR é leitura automática assistida: gera informação **a conferir** e nunca confirma doses. Três aprovações independentes são exigidas; uma recusa devolve o motivo e a próxima providência. Sem trio elegível, aguarda sem relaxar restrições. Distância geográfica não prova ausência de relacionamento pessoal.
+
+## Fontes e limites
+
+Catálogo de vacinas consultado no [FHIR público da RNDS](https://fhir.saude.gov.br/ria/pt-BR/CodeSystem-BRImunobiologico.json), com versão, hash, atualização diária e última cópia válida. As datas de rotina usam regras locais versionadas vinculadas à instrução oficial do Ministério da Saúde. O recorte automático atual cobre **BCG, pentavalente e poliomielite VIP**; a UBS pode registrar datas de outras vacinas. Ausência de aviso não comprova vacinação completa. Não há consulta ao histórico pessoal da RNDS.
+
+Esta é uma versão de homologação com dados fictícios. Antes de dados reais: concluir revisão clínica e jurídico-operacional, validar representação de familiares, retenção, canal informado de privacidade e plano de backup/incident response. Avisos externos são opcionais e dependem do aparelho, conexão e permissão.
+
+## Documentação
+
+- [Kanban e pendências verificáveis](KANBAN.md)
+- [Roadmap e marcos](roadmap.md)
+- [Guia de continuidade para IA](GUIA_IA.md)
+- [Operação, equipe, migrações e testes](docs/OPERACAO.md)
+- [Decisões de UI/UX e referências](docs/DESIGN_UX.md)
+- [Instruções obrigatórias de colaboração](AGENTS.md)
+
+Interface e documentação da API: http://localhost:4173/api/docs (aplicativo local iniciado).

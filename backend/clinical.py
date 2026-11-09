@@ -4,11 +4,12 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import insert, select, update
 
-from . import db
+from . import clock, db
 from . import schemas as s
 from . import security as sec
 from .access import document, one, person
-from .domain import event, notify, now, recalculate, schedule, uid
+from .domain import event, individual_schedule, notify, now, recalculate, schedule, uid
+from .reviews import cast_vote, declare_impediment, require_assignment, summary
 
 router = APIRouter()
 User = Depends(sec.session_user)
@@ -46,9 +47,21 @@ def extractions(identifier: str, request: Request, user=User):
         document(con, identifier, user)
         return {
             "items": [
-                dict(r)
+                {
+                    **dict(r),
+                    "review": summary(
+                        con,
+                        r["document_id"],
+                        "vaccination",
+                        r["id"],
+                        user,
+                        terminal=r["status"] != "a_conferir",
+                    ),
+                }
                 for r in con.execute(
-                    select(db.vaccinations).where(db.vaccinations.c.document_id == identifier)
+                    select(db.vaccinations, db.users.c.name.label("reviewer_name"))
+                    .outerjoin(db.users, db.users.c.id == db.vaccinations.c.reviewer_id)
+                    .where(db.vaccinations.c.document_id == identifier)
                 ).mappings()
             ]
         }
@@ -90,9 +103,20 @@ def history(identifier: str, request: Request, user=User):
         person(con, identifier, user)
         return {
             "items": [
-                dict(r)
+                {
+                    **dict(r),
+                    "review": summary(
+                        con,
+                        r["document_id"],
+                        "vaccination",
+                        r["id"],
+                        user,
+                        terminal=r["status"] != "a_conferir",
+                    ),
+                }
                 for r in con.execute(
-                    select(db.vaccinations)
+                    select(db.vaccinations, db.users.c.name.label("reviewer_name"))
+                    .outerjoin(db.users, db.users.c.id == db.vaccinations.c.reviewer_id)
                     .where(db.vaccinations.c.dependent_id == identifier)
                     .order_by(db.vaccinations.c.dose_date.desc())
                 ).mappings()
@@ -109,7 +133,7 @@ def decide_record(identifier: str, body: s.RecordDecision, request: Request, use
         if body.decision == "validado":
             if (
                 not record["dose_date"]
-                or record["dose_date"] > date.today().isoformat()
+                or record["dose_date"] > clock.today().isoformat()
                 or (dependent["birth_date"] and record["dose_date"] < dependent["birth_date"])
             ):
                 raise HTTPException(400, "Revise a data do candidato antes de validar.")
@@ -118,20 +142,17 @@ def decide_record(identifier: str, body: s.RecordDecision, request: Request, use
                 and one(con, db.documents, record["document_id"])["status"] != "aprovado"
             ):
                 raise HTTPException(409, "Confira e aprove a evidência antes de confirmar o registro.")
-        result = con.execute(
-            update(db.vaccinations)
-            .where(db.vaccinations.c.id == identifier, db.vaccinations.c.status == "a_conferir")
-            .values(status=body.decision, reviewer_id=user["id"], review_note=body.note, reviewed_at=now())
-        )
-        if not result.rowcount:
-            raise HTTPException(409, "Registro já recebeu decisão.")
-        event(con, user["id"], "vaccination", identifier, body.decision, body.note)
-        recalculate(con, record["dependent_id"], user["id"])
-        notify(
+        require_assignment(con, record["document_id"], user)
+        cast_vote(
             con,
-            dependent["owner_id"],
-            f"vaccination:{identifier}:{body.decision}",
-            "Um registro foi conferido pela UBS. Consulte o histórico.",
+            record["document_id"],
+            "vaccination",
+            identifier,
+            "aprovar" if body.decision == "validado" else "recusar",
+            body.note,
+            body.guidance,
+            user,
+            body.independenceConfirmed,
         )
         return {"item": one(con, db.vaccinations, identifier)}
 
@@ -179,25 +200,34 @@ def family_schedule(request: Request, user=User):
     with request.app.state.engine.connect() as con:
         active = con.execute(select(db.rules).where(db.rules.c.active.is_(True))).mappings().first()
         items = []
-        if active:
-            for dependent in con.execute(
-                select(db.dependents).where(db.dependents.c.owner_id == user["id"])
-            ).mappings():
-                records = (
-                    con.execute(
-                        select(db.vaccinations).where(db.vaccinations.c.dependent_id == dependent["id"])
-                    )
-                    .mappings()
-                    .all()
-                )
-                for item in schedule(dependent["birth_date"], records, active):
-                    items.append({**item, "dependentId": dependent["id"], "dependent": dependent["name"]})
+        for dependent in con.execute(
+            select(db.dependents).where(db.dependents.c.owner_id == user["id"])
+        ).mappings():
+            records = (
+                con.execute(select(db.vaccinations).where(db.vaccinations.c.dependent_id == dependent["id"]))
+                .mappings()
+                .all()
+            )
+            individual = individual_schedule(con, dependent["id"])
+            overrides = {(i["vaccine"], i["dose"]) for i in individual}
+            routine = (
+                [
+                    i
+                    for i in schedule(dependent["birth_date"], records, active)
+                    if (i["vaccine"], i["dose"]) not in overrides
+                ]
+                if active
+                else []
+            )
+            for item in routine + individual:
+                items.append({**item, "dependentId": dependent["id"], "dependent": dependent["name"]})
         return {
             "items": sorted(items, key=lambda i: (i["dueDate"], i["dependent"])),
             "coverage": {
                 "version": active["version"] if active else None,
+                "source": active["source"] if active else None,
                 "valid": bool(
-                    active and active["valid_from"] <= date.today().isoformat() <= active["valid_until"]
+                    active and active["valid_from"] <= clock.today().isoformat() <= active["valid_until"]
                 ),
                 "vaccines": sorted({r["vaccine"] for r in active["rules"]}) if active else [],
             },
@@ -227,12 +257,88 @@ def add_guidance(identifier: str, body: s.Guidance, request: Request, user=User)
         return {"item": item}
 
 
+@router.get("/api/v1/dependents/{identifier}/dose-plans")
+def dose_plans(identifier: str, request: Request, user=User):
+    with request.app.state.engine.connect() as con:
+        person(con, identifier, user)
+        return {
+            "items": [
+                dict(r)
+                for r in con.execute(
+                    select(db.dose_plans)
+                    .where(db.dose_plans.c.dependent_id == identifier)
+                    .order_by(db.dose_plans.c.created_at.desc())
+                ).mappings()
+            ]
+        }
+
+
+@router.post("/api/v1/dependents/{identifier}/dose-plans", status_code=201)
+def add_dose_plan(identifier: str, body: s.DosePlan, request: Request, user=User):
+    sec.role(user, "ubs")
+    with request.app.state.engine.begin() as con:
+        dependent = person(con, identifier, user)
+        con.execute(select(db.dependents.c.id).where(db.dependents.c.id == identifier).with_for_update())
+        if (
+            dependent["birth_date"] and body.dueDate.isoformat() < dependent["birth_date"]
+        ) or body.dueDate.year > clock.today().year + 20:
+            raise HTTPException(400, "Data do acompanhamento inválida.")
+        existing = con.execute(
+            select(db.dose_plans.c.id).where(
+                db.dose_plans.c.dependent_id == identifier,
+                db.dose_plans.c.vaccine == body.vaccine,
+                db.dose_plans.c.dose == body.dose,
+                db.dose_plans.c.status == "ativa",
+            )
+        ).first()
+        if existing:
+            raise HTTPException(
+                409, "Já há uma data ativa para esta vacina e dose. Cancele a anterior para registrar outra."
+            )
+        item = dict(
+            id=uid(),
+            dependent_id=identifier,
+            vaccine=body.vaccine,
+            dose=body.dose,
+            due_date=body.dueDate.isoformat(),
+            author_id=user["id"],
+            note=body.note,
+            status="ativa",
+            created_at=now(),
+            updated_at=now(),
+            record_id=None,
+        )
+        con.execute(insert(db.dose_plans).values(**item))
+        event(con, user["id"], "dose_plan", item["id"], "data_acompanhamento_registrada")
+        recalculate(con, identifier, user["id"])
+        return {"item": one(con, db.dose_plans, item["id"])}
+
+
+@router.post("/api/v1/dose-plans/{identifier}/cancel")
+def cancel_plan(identifier: str, body: s.CancelPlan, request: Request, user=User):
+    sec.role(user, "ubs")
+    with request.app.state.engine.begin() as con:
+        plan = one(con, db.dose_plans, identifier)
+        person(con, plan["dependent_id"], user)
+        result = con.execute(
+            update(db.dose_plans)
+            .where(db.dose_plans.c.id == identifier, db.dose_plans.c.status == "ativa")
+            .values(status="cancelada", updated_at=now())
+        )
+        if not result.rowcount:
+            raise HTTPException(409, "Este acompanhamento não está ativo.")
+        event(con, user["id"], "dose_plan", identifier, "data_acompanhamento_cancelada", body.note)
+        recalculate(con, plan["dependent_id"], user["id"])
+    return {"ok": True}
+
+
 @router.get("/api/v1/dependents/{identifier}/guidance")
 def guidance(identifier: str, request: Request, user=User):
     with request.app.state.engine.connect() as con:
         person(con, identifier, user)
         query = (
-            select(db.guidance)
+            select(db.guidance, db.users.c.name.label("author_name"))
+            .join(db.users, db.users.c.id == db.guidance.c.author_id)
             .join(db.pendings, db.pendings.c.id == db.guidance.c.pending_id)
             .where(db.pendings.c.dependent_id == identifier)
         )
@@ -280,24 +386,28 @@ def cases(request: Request, q: str = "", status: str = "aberta", user=User):
         raise HTTPException(400, "Situação inválida.")
     with request.app.state.engine.connect() as con:
         items = []
-        for pending in con.execute(
-            select(db.pendings).where(db.pendings.c.status == status).order_by(db.pendings.c.updated_at)
+        for case in con.execute(
+            select(db.outreach_cases)
+            .where(db.outreach_cases.c.status == status)
+            .order_by(db.outreach_cases.c.updated_at)
         ).mappings():
-            dependent = one(con, db.dependents, pending["dependent_id"])
+            dependent = one(con, db.dependents, case["dependent_id"])
             owner = one(con, db.users, dependent["owner_id"]) if dependent["owner_id"] else None
-            if q.lower() not in dependent["name"].lower():
+            if q.lower() not in (dependent["name"] + " " + (owner["name"] if owner else "")).lower():
                 continue
             items.append(
                 {
-                    "id": pending["id"],
+                    "id": case["id"],
                     "dependent": dependent["name"],
                     "guardian": owner["name"] if owner else "Vínculo pendente",
                     "contact": owner["email"] if owner else "",
-                    "reason": "Possível pendência vacinal requer acompanhamento da UBS.",
+                    "reason": "Acompanhamento com a UBS: possíveis pendências ou data de retorno ultrapassada."
+                    if status == "aberta"
+                    else "Acompanhamento resolvido; histórico de contatos preservado.",
                     "priority": "alta"
-                    if (date.today() - date.fromisoformat(pending["updated_at"][:10])).days >= 30
+                    if (clock.today() - date.fromisoformat(case["updated_at"][:10])).days >= 30
                     else "normal",
-                    "updated_at": pending["updated_at"],
+                    "updated_at": case["updated_at"],
                 }
             )
         return {"items": items}
@@ -307,29 +417,27 @@ def cases(request: Request, q: str = "", status: str = "aberta", user=User):
 def contacts(identifier: str, request: Request, user=User):
     sec.role(user, "acs", "ubs")
     with request.app.state.engine.connect() as con:
-        one(con, db.pendings, identifier)
-        return {
-            "items": [
-                dict(r)
-                for r in con.execute(
-                    select(db.actions)
-                    .where(db.actions.c.pending_id == identifier)
-                    .order_by(db.actions.c.created_at.desc())
-                ).mappings()
-            ]
-        }
+        one(con, db.outreach_cases, identifier)
+        query = (
+            select(db.actions, db.users.c.name.label("author_name"))
+            .join(db.users, db.users.c.id == db.actions.c.author_id)
+            .where(db.actions.c.case_id == identifier)
+            .order_by(db.actions.c.created_at.desc())
+        )
+        return {"items": [dict(row) for row in con.execute(query).mappings()]}
 
 
 @router.post("/api/v1/acs/cases/{identifier}/actions", status_code=201)
 def add_contact(identifier: str, body: s.Contact, request: Request, user=User):
     sec.role(user, "acs")
     with request.app.state.engine.begin() as con:
-        pending = one(con, db.pendings, identifier)
-        if pending["status"] != "aberta":
+        case = one(con, db.outreach_cases, identifier)
+        if case["status"] != "aberta":
             raise HTTPException(409, "Caso resolvido; consulte o histórico.")
         item = dict(
             id=uid(),
-            pending_id=identifier,
+            pending_id=None,
+            case_id=identifier,
             author_id=user["id"],
             kind=body.kind,
             note=body.note,
@@ -372,6 +480,7 @@ def export(request: Request, user=User):
                 ("documents", db.documents),
                 ("vaccinations", db.vaccinations),
                 ("pendings", db.pendings),
+                ("dosePlans", db.dose_plans),
             ]:
                 rows = [
                     dict(r)
@@ -385,3 +494,49 @@ def export(request: Request, user=User):
             result["dependents"].append(item)
         event(con, user["id"], "user", user["id"], "dados_exportados")
         return result
+
+
+@router.post("/api/v1/documents/{identifier}/impediment")
+def impediment(identifier: str, body: s.Impediment, request: Request, user=User):
+    sec.role(user, "ubs")
+    with request.app.state.engine.begin() as con:
+        document(con, identifier, user)
+        declare_impediment(con, identifier, user, body.reason)
+    return {"ok": True}
+
+
+@router.get("/api/v1/family/feedback")
+def family_feedback(request: Request, user=User):
+    sec.role(user, "familia")
+    items = []
+    with request.app.state.engine.connect() as con:
+        for table, kind, pending in (
+            (db.documents, "document", "pendente"),
+            (db.vaccinations, "vaccination", "a_conferir"),
+        ):
+            query = (
+                select(table, db.dependents.c.name.label("dependent"))
+                .join(db.dependents, db.dependents.c.id == table.c.dependent_id)
+                .where(db.dependents.c.owner_id == user["id"], table.c.status != pending)
+            )
+            for row in con.execute(query).mappings():
+                document_id = row["id"] if kind == "document" else row["document_id"]
+                review = summary(con, document_id, kind, row["id"], user, terminal=True)
+                items.append(
+                    {
+                        "id": row["id"],
+                        "kind": kind,
+                        "documentId": document_id,
+                        "dependentId": row["dependent_id"],
+                        "dependent": row["dependent"],
+                        "label": row["original_name"]
+                        if kind == "document"
+                        else f"{row['vaccine']} · Dose {row['dose']}",
+                        "status": row["status"],
+                        "reason": row["review_note"],
+                        "nextStep": row["review_guidance"],
+                        "at": row["reviewed_at"],
+                        "reviewers": review["reviewers"],
+                    }
+                )
+    return {"items": sorted(items, key=lambda i: i["at"] or "", reverse=True)}

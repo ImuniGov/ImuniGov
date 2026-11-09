@@ -1,0 +1,490 @@
+{
+  "source": "https://fhir.saude.gov.br/ria/pt-BR/CodeSystem-BRImunobiologico.json",
+  "system": "http://www.saude.gov.br/fhir/r4/CodeSystem/BRImunobiologico",
+  "version": "1.0.0-release",
+  "publishedAt": "2023-01-12T18:40:15.6103207+00:00",
+  "checkedAt": "2026-11-09T02:22:33.221790+00:00",
+  "sha256": "b024f0463da1764b58fa8f3e182fd53bbf6f02bd8341a6a20ed26d10d7832a0f",
+  "items": [
+    {
+      "code": "5",
+      "name": "DT",
+      "display": "DT",
+      "description": "Vacina adsorvida difteria e tétano infantil"
+    },
+    {
+      "code": "9",
+      "name": "Hepatite B",
+      "display": "HB",
+      "description": "vacina hepatite B (recombinante)"
+    },
+    {
+      "code": "13",
+      "name": "MenAC",
+      "display": "MenAC",
+      "description": "vacina meningocócica AC (polissacarídica)"
+    },
+    {
+      "code": "14",
+      "name": "Febre amarela",
+      "display": "VFA",
+      "description": "vacina febre amarela (atenuada)"
+    },
+    {
+      "code": "15",
+      "name": "BCG",
+      "display": "BCG",
+      "description": "vacina BCG"
+    },
+    {
+      "code": "17",
+      "name": "Hib",
+      "display": "Hib",
+      "description": "vacina Haemophilus influenza B (conjugada)"
+    },
+    {
+      "code": "21",
+      "name": "VPP23",
+      "display": "VPP23",
+      "description": "vacina pneumocócica 23-valente (polissacarídica)"
+    },
+    {
+      "code": "22",
+      "name": "Poliomielite VIP",
+      "display": "VIP",
+      "description": "vacina poliomelite 1, 2 e 3 (inativada)"
+    },
+    {
+      "code": "24",
+      "name": "Tríplice viral",
+      "display": "SCR",
+      "description": "vacina sarampo, caxumba, rubéola (atenuada)"
+    },
+    {
+      "code": "25",
+      "name": "dT",
+      "display": "dT",
+      "description": "vacina adsorvida difteria e tétano adulto"
+    },
+    {
+      "code": "26",
+      "name": "VPC10",
+      "display": "VPC10",
+      "description": "vacina pneumocócica 10-valente (conjugada)"
+    },
+    {
+      "code": "28",
+      "name": "VOPb",
+      "display": "VOPb",
+      "description": "vacina poliomielite 1 e 3 (atenuada)"
+    },
+    {
+      "code": "29",
+      "name": "Penta acelular",
+      "display": "Penta acelular",
+      "description": "vacina adsorvida difteria, tétano, pertussis (acelular), poliomielite 1, 2 e 3 (inativada) e Haemophilus influenzae B (conjugada)"
+    },
+    {
+      "code": "30",
+      "name": "FTp",
+      "display": "FTp",
+      "description": "vacina febre tifóide (polissacarídica)"
+    },
+    {
+      "code": "33",
+      "name": "INF3",
+      "display": "INF3",
+      "description": "vacina influenza trivalente (fragmentada, inativada)"
+    },
+    {
+      "code": "34",
+      "name": "VZ",
+      "display": "VZ",
+      "description": "vacina varicela (atenuada)"
+    },
+    {
+      "code": "35",
+      "name": "HA virossomal",
+      "display": "HA virossomal",
+      "description": "vacina adsorvida hepatite A (virossomal)"
+    },
+    {
+      "code": "36",
+      "name": "SR",
+      "display": "SR",
+      "description": "vacina sarampo, rubéola (atenuada)"
+    },
+    {
+      "code": "37",
+      "name": "VR",
+      "display": "VR",
+      "description": "vacina raiva (inativada)"
+    },
+    {
+      "code": "39",
+      "name": "Tetra",
+      "display": "Tetra",
+      "description": "vacina adsorvida difteria, tétano, pertussis e Haemophilus influenzae B (conjugada)"
+    },
+    {
+      "code": "40",
+      "name": "VPC7",
+      "display": "VPC7",
+      "description": "vacina pneumocócica 7-valente (conjugada)"
+    },
+    {
+      "code": "41",
+      "name": "MenC",
+      "display": "MenC",
+      "description": "vacina meningocócica C (conjugada)"
+    },
+    {
+      "code": "42",
+      "name": "Pentavalente",
+      "display": "Penta",
+      "description": "vacina adsorvida difteria, tétano, pertussis, hepatite B (recombinante) e Haemophilus influenzae B (conjugada)"
+    },
+    {
+      "code": "43",
+      "name": "Hexa acelular",
+      "display": "Hexa acelular",
+      "description": "vacina adsorvida difteria, tétano, pertussis (acelular), hepatite B (recombinante), poliomielite 1, 2 e 3 (inativada), Haemophilus influenzae B (conjugada)"
+    },
+    {
+      "code": "44",
+      "name": "INFH1N1-2009",
+      "display": "INFH1N1-2009",
+      "description": "vacina influenza tipo A (H1N1) (inativada, fragmentada)"
+    },
+    {
+      "code": "45",
+      "name": "ROTA",
+      "display": "ROTA",
+      "description": "vacina rotavírus humano G1P[8] (atenuada)"
+    },
+    {
+      "code": "46",
+      "name": "DTP",
+      "display": "DTP",
+      "description": "vacina adsorvida difteria, tétano e pertussis"
+    },
+    {
+      "code": "47",
+      "name": "DTPa",
+      "display": "DTPa",
+      "description": "vacina adsorvida difteria, tétano e pertussis (acelular)"
+    },
+    {
+      "code": "51",
+      "name": "Fta",
+      "display": "Fta",
+      "description": "vacina febre tifóide (atenuada)"
+    },
+    {
+      "code": "55",
+      "name": "HAinf",
+      "display": "HAinf",
+      "description": "vacina adsorvida hepatite A (inativada)"
+    },
+    {
+      "code": "56",
+      "name": "SCRV",
+      "display": "SCRV",
+      "description": "vacina sarampo, caxumba, rubéola e varicela (atenuada)"
+    },
+    {
+      "code": "57",
+      "name": "dTpa",
+      "display": "dTpa",
+      "description": "vacina adsorvida difteria, tétano e pertussis (acelular)"
+    },
+    {
+      "code": "58",
+      "name": "DTPa/VIP",
+      "display": "DTPa/VIP",
+      "description": "vacina adsorvida difteria, tétano, pertussis (acelular), poliomielite 1, 2 e 3 (inativada)"
+    },
+    {
+      "code": "59",
+      "name": "VPC13",
+      "display": "VPC13",
+      "description": "vacina pneumocócica 13-valente (conjugada)"
+    },
+    {
+      "code": "60",
+      "name": "HPV2",
+      "display": "HPV2",
+      "description": "vacina papilomavírus humano 16 e 18 (recombinante)"
+    },
+    {
+      "code": "61",
+      "name": "Tétano",
+      "display": "Tétano",
+      "description": "vacina tétano (inativada)"
+    },
+    {
+      "code": "62",
+      "name": "HA-HBinf",
+      "display": "HA-HBinf",
+      "description": "vacina adsorvida hepatite A e hepatite B (recombinante)"
+    },
+    {
+      "code": "63",
+      "name": "HA-HBad",
+      "display": "HA-HBad",
+      "description": "vacina adsorvida hepatite A e hepatite B (recombinante)"
+    },
+    {
+      "code": "64",
+      "name": "INF3-ID",
+      "display": "INF3-ID",
+      "description": "vacina influenza trivalente (fragmentada, inativada) intradérmica"
+    },
+    {
+      "code": "65",
+      "name": "ROTA5",
+      "display": "ROTA5",
+      "description": "vacina rotavírus humano/bovino G1, G2, G3, G4 e P1A[8] (atenuada)"
+    },
+    {
+      "code": "66",
+      "name": "MenBC",
+      "display": "MenBC",
+      "description": "vacina meningocócica BC (polissacarídica)"
+    },
+    {
+      "code": "67",
+      "name": "HPV4",
+      "display": "HPV4",
+      "description": "vacina papilomavírus humano 6, 11, 16 e 18 (recombinante)"
+    },
+    {
+      "code": "68",
+      "name": "HPV2",
+      "display": "HPV2",
+      "description": "vacina papilomavírus humano 16 e 18 (recombinante)"
+    },
+    {
+      "code": "70",
+      "name": "Sarampo",
+      "display": "Sarampo",
+      "description": "vacina sarampo (atenuada)"
+    },
+    {
+      "code": "71",
+      "name": "Rubéola",
+      "display": "Rubéola",
+      "description": "vacina rubéola (atenuada)"
+    },
+    {
+      "code": "72",
+      "name": "INFH1N1-2009",
+      "display": "INFH1N1-2009",
+      "description": "vacina influenza tipo A (H1N1) (inativada, fragmentada)"
+    },
+    {
+      "code": "73",
+      "name": "SCRV",
+      "display": "SCRV",
+      "description": "vacina sarampo, caxumba, rubéola e varicela (atenuada)"
+    },
+    {
+      "code": "74",
+      "name": "MenACWY",
+      "display": "MenACWY",
+      "description": "vacina meningocócica ACWY (conjugada)"
+    },
+    {
+      "code": "75",
+      "name": "VCO",
+      "display": "VCO",
+      "description": "vacina cólera (inativada)"
+    },
+    {
+      "code": "76",
+      "name": "VHZ",
+      "display": "VHZ",
+      "description": "vacina herpes-zóster (atenuada)"
+    },
+    {
+      "code": "77",
+      "name": "INF4",
+      "display": "INF4",
+      "description": "vacina influenza tetravalente (fragmentada, inativada)"
+    },
+    {
+      "code": "78",
+      "name": "MenB",
+      "display": "MenB",
+      "description": "vacina adsorvida meningocócica B (recombinante)"
+    },
+    {
+      "code": "82",
+      "name": "Dengue",
+      "display": "Dengue",
+      "description": "vacina dengue 1, 2, 3 e 4 (recombinante e atenuada)"
+    },
+    {
+      "code": "83",
+      "name": "HAad",
+      "display": "HAad",
+      "description": "vacina adsorvida hepatite A (inativada)"
+    },
+    {
+      "code": "84",
+      "name": "VFA-F",
+      "display": "VFA-F",
+      "description": "vacina febre amarela (atenuada)"
+    },
+    {
+      "code": "85",
+      "name": "COVID-19 ASTRAZENECA/FIOCRUZ - COVISHIELD",
+      "display": "COVID-19 ASTRAZENECA/FIOCRUZ - COVISHIELD",
+      "description": "vacina covid-19 (recombinante)"
+    },
+    {
+      "code": "86",
+      "name": "COVID-19 SINOVAC/BUTANTAN - CORONAVAC",
+      "display": "COVID-19 SINOVAC/BUTANTAN - CORONAVAC",
+      "description": "vacina adsorvida covid-19 (inativada)"
+    },
+    {
+      "code": "87",
+      "name": "COVID-19 PFIZER - COMIRNATY",
+      "display": "COVID-19 PFIZER - COMIRNATY",
+      "description": "vacina covid-19"
+    },
+    {
+      "code": "88",
+      "name": "COVID-19 JANSSEN - Ad26.COV2.S",
+      "display": "COVID-19 JANSSEN - Ad26.COV2.S",
+      "description": "vacina covid-19 (recombinante)"
+    },
+    {
+      "code": "89",
+      "name": "COVID-19 ASTRAZENECA - ChAdOx1-S",
+      "display": "COVID-19 ASTRAZENECA - ChAdOx1-S",
+      "description": "vacina covid-19 (recombinante)"
+    },
+    {
+      "code": "92",
+      "name": "VR",
+      "display": "VR",
+      "description": "vacina raiva (inativada)"
+    },
+    {
+      "code": "93",
+      "name": "HPV9",
+      "display": "HPV9",
+      "description": "vacina papilomavírus humano 9-valente (recombinante)"
+    },
+    {
+      "code": "97",
+      "name": "COVID-19 MODERNA - SPIKEVAX",
+      "display": "COVID-19 MODERNA - SPIKEVAX",
+      "description": "vacina covid-19"
+    },
+    {
+      "code": "98",
+      "name": "COVID-19 SINOVAC - CORONAVAC",
+      "display": "COVID-19 SINOVAC - CORONAVAC",
+      "description": "vacina adsorvida covid-19 (inativada)"
+    },
+    {
+      "code": "99",
+      "name": "COVID-19 PFIZER - COMIRNATY PEDIÁTRICA",
+      "display": "COVID-19 PFIZER - COMIRNATY PEDIÁTRICA",
+      "description": "vacina covid-19"
+    },
+    {
+      "code": "100",
+      "name": "VVS",
+      "display": "VVS",
+      "description": "vacina varíola símia (atenuada)"
+    },
+    {
+      "code": "101",
+      "name": "VHZR",
+      "display": "VHZR",
+      "description": "vacina herpes-zóster (recombinante)"
+    },
+    {
+      "code": "102",
+      "name": "COVID-19 PFIZER - COMIRNATY PEDIÁTRICA MENOR DE 5 ANOS",
+      "display": "COVID-19 PFIZER - COMIRNATY PEDIÁTRICA MENOR DE 5 ANOS",
+      "description": "vacina covid-19"
+    },
+    {
+      "code": "103",
+      "name": "COVID-19 PFIZER - COMIRNATY BIVALENTE",
+      "display": "COVID-19 PFIZER - COMIRNATY BIVALENTE",
+      "description": "vacina covid-19 bivalente"
+    },
+    {
+      "code": "104",
+      "name": "DNG",
+      "display": "DNG",
+      "description": "vacina dengue 1, 2, 3 e 4 (atenuada)"
+    },
+    {
+      "code": "106",
+      "name": "VPC15",
+      "display": "VPC15",
+      "description": "vacina adsorvida pneumocócica 15-valente (conjugada, polissacarídica)"
+    },
+    {
+      "code": "107",
+      "name": "VPC20",
+      "display": "VPC20",
+      "description": "vacina pneumocócica 20-valente (conjugada)"
+    },
+    {
+      "code": "108",
+      "name": "VVSR-Rec",
+      "display": "VVSR-Rec",
+      "description": "vacina vírus sincicial respiratório A e B (recombinante)"
+    },
+    {
+      "code": "109",
+      "name": "VVSR-RecAdj",
+      "display": "VVSR-RecAdj",
+      "description": "vacina vírus sincicial respiratório (recombinante, adjuvada)"
+    },
+    {
+      "code": "110",
+      "name": "INF4-alta dosagem",
+      "display": "INF4-alta dosagem",
+      "description": "vacina influenza tetravalente (fragmentada, inativada)"
+    },
+    {
+      "code": "111",
+      "name": "dTpa/VIP",
+      "display": "dTpa/VIP",
+      "description": "vacina adsorvida difteria, tétano, pertussis (acelular), poliomielite 1, 2 e 3 (inativada)"
+    },
+    {
+      "code": "112",
+      "name": "COVID-19 SERUM/ZALIKA",
+      "display": "COVID-19 SERUM/ZALIKA",
+      "description": "Vacina covid-19 (recombinante)"
+    },
+    {
+      "code": "113",
+      "name": "CHIKUNGUNYA",
+      "display": "CHIKUNGUNYA",
+      "description": "vacina chikungunya (recombinante e atenuada)"
+    },
+    {
+      "code": "114",
+      "name": "COVID-19 SINOPHARM",
+      "display": "COVID-19 SINOPHARM",
+      "description": "vacina covid-19 (inativada)"
+    },
+    {
+      "code": "117",
+      "name": "INF3-alta dosagem",
+      "display": "INF3-alta dosagem",
+      "description": "vacina influenza trivalente (fragmentada, inativada)"
+    }
+  ]
+}

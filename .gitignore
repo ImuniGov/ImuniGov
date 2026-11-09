@@ -30,3 +30,8 @@ __pycache__/
 data/
 .env
 coverage/
+
+# Public IBGE reference data only; private runtime data remains ignored.
+!backend/data/
+backend/data/*
+!backend/data/geography.json

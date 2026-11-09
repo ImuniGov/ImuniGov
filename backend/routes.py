@@ -9,16 +9,17 @@ from PIL import Image
 from pypdf import PdfReader
 from sqlalchemy import delete, func, insert, select, update
 
-from . import db
+from . import clock, db
 from . import schemas as s
 from . import security as sec
 from .access import document, one, person, public_document
-from .domain import event, notify, now, recalculate, uid
+from .domain import event, now, recalculate, uid
+from .privacy import record_acceptance
+from .reviews import assign_document, assign_waiting, cast_vote
 
 router = APIRouter()
 User = Depends(sec.session_user)
 MAX_UPLOAD = 10 * 1024 * 1024
-PRIVACY_VERSION = "2026-11-08"
 
 
 @router.post("/api/v1/auth/register", status_code=201)
@@ -32,11 +33,11 @@ def register(body: s.Register, request: Request, response: Response):
         role="familia",
         password_hash=sec.hasher.hash(body.password),
         created_at=now(),
-        privacy_version=PRIVACY_VERSION,
+        privacy_version=body.termsVersion,
     )
     with engine.begin() as con:
         con.execute(insert(db.users).values(**user))
-        event(con, user["id"], "user", user["id"], "cadastro_e_ciencia_privacidade", PRIVACY_VERSION)
+        record_acceptance(con, user["id"], body)
         csrf = sec.start_session(con, user["id"], response, request.app.state.secure)
     return {"user": sec.public_user(user), "csrf": csrf}
 
@@ -56,6 +57,8 @@ def login(body: s.Login, request: Request, response: Response):
                 db.sessions.c.id == sec.token_hash(request.cookies.get("imuniguia_session", ""))
             )
         )
+        if user["role"] == "ubs":
+            assign_waiting(con)
         csrf = sec.start_session(con, user["id"], response, request.app.state.secure)
         event(con, user["id"], "user", user["id"], "login")
     return {"user": sec.public_user(user), "csrf": csrf}
@@ -92,6 +95,15 @@ def dependents(request: Request, user=User):
     query = select(db.dependents).order_by(db.dependents.c.name)
     if user["role"] == "familia":
         query = query.where(db.dependents.c.owner_id == user["id"])
+    else:
+        query = (
+            query.join(db.documents, db.documents.c.dependent_id == db.dependents.c.id)
+            .join(db.review_assignments, db.review_assignments.c.document_id == db.documents.c.id)
+            .where(
+                db.review_assignments.c.reviewer_id == user["id"], db.review_assignments.c.status == "ativa"
+            )
+            .distinct()
+        )
     with request.app.state.engine.connect() as con:
         return {
             "items": [
@@ -159,12 +171,16 @@ def documents(request: Request, status: str | None = None, user=User):
     query = select(db.documents).join(db.dependents, db.dependents.c.id == db.documents.c.dependent_id)
     if user["role"] == "familia":
         query = query.where(db.dependents.c.owner_id == user["id"])
+    if user["role"] == "ubs":
+        query = query.join(
+            db.review_assignments, db.review_assignments.c.document_id == db.documents.c.id
+        ).where(db.review_assignments.c.reviewer_id == user["id"], db.review_assignments.c.status == "ativa")
     if status:
         query = query.where(db.documents.c.status == status)
     with request.app.state.engine.connect() as con:
         return {
             "items": [
-                public_document(dict(r), one(con, db.dependents, r["dependent_id"]))
+                public_document(dict(r), one(con, db.dependents, r["dependent_id"]), con, user)
                 for r in con.execute(query.order_by(db.documents.c.created_at.desc())).mappings()
             ]
         }
@@ -214,7 +230,7 @@ async def upload(
         raise HTTPException(400, "Informe a vacina ou registro.")
     if doseDate:
         try:
-            if date.fromisoformat(doseDate) > date.today() or (
+            if date.fromisoformat(doseDate) > clock.today() or (
                 dependent["birth_date"] and doseDate < dependent["birth_date"]
             ):
                 raise ValueError()
@@ -262,17 +278,19 @@ async def upload(
                 )
             )
             event(con, user["id"], "document", item["id"], "arquivo_enviado")
+            assign_document(con, item["id"])
+            public_item = public_document(item, dependent, con, user)
     except Exception:
         path.unlink(missing_ok=True)
         raise
-    return {"item": public_document(item, dependent)}
+    return {"item": public_item}
 
 
 @router.get("/api/documents/{identifier}")
 def get_document(identifier: str, request: Request, user=User):
     with request.app.state.engine.connect() as con:
         item, dependent = document(con, identifier, user)
-        return {"item": public_document(item, dependent)}
+        return {"item": public_document(item, dependent, con, user)}
 
 
 @router.get("/api/documents/{identifier}/file")
@@ -296,36 +314,26 @@ def document_file(identifier: str, request: Request, user=User):
 @router.post("/api/documents/{identifier}/decision")
 def decide_document(identifier: str, body: s.Decision, request: Request, user=User):
     sec.role(user, "ubs")
-    if body.decision == "rejeitado" and not body.note:
-        raise HTTPException(400, "Informe o motivo da devolução.")
     with request.app.state.engine.begin() as con:
         item, dependent = document(con, identifier, user)
-        result = con.execute(
-            update(db.documents)
-            .where(db.documents.c.id == identifier, db.documents.c.status == "pendente")
-            .values(
-                status=body.decision,
-                reviewer=user["name"],
-                reviewed_at=now(),
-                review_note=body.note or "Arquivo conferido pela equipe.",
-            )
-        )
-        if not result.rowcount:
-            raise HTTPException(409, "Documento já recebeu decisão.")
-        event(con, user["id"], "document", identifier, body.decision, body.note)
-        notify(
+        cast_vote(
             con,
-            dependent["owner_id"],
-            f"document:{identifier}:{body.decision}",
-            "A UBS atualizou a conferência de um arquivo.",
+            identifier,
+            "document",
+            identifier,
+            "aprovar" if body.decision == "aprovado" else "recusar",
+            body.note,
+            body.guidance,
+            user,
+            body.independenceConfirmed,
         )
-        return {"item": public_document(one(con, db.documents, identifier), dependent)}
+        return {"item": public_document(one(con, db.documents, identifier), dependent, con, user)}
 
 
 @router.get("/api/audit")
 def document_audit(documentId: str, request: Request, user=User):
     with request.app.state.engine.connect() as con:
-        document(con, documentId, user)
+        current, _ = document(con, documentId, user)
         return {
             "items": [
                 dict(r)
@@ -334,6 +342,12 @@ def document_audit(documentId: str, request: Request, user=User):
                     .where(db.audit.c.target_type == "document", db.audit.c.target_id == documentId)
                     .order_by(db.audit.c.created_at)
                 ).mappings()
+                if not (
+                    user["role"] == "ubs"
+                    and current["status"] == "pendente"
+                    and r["event"].startswith("voto_independente_")
+                    and r["actor_id"] != user["id"]
+                )
             ]
         }
 

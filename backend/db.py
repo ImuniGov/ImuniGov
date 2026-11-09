@@ -38,6 +38,26 @@ users = table(
     text("privacy_version", nullable=False),
     CheckConstraint("role IN ('familia','ubs','acs')"),
 )
+acceptances = table(
+    "privacy_acceptances",
+    text("user_id", ForeignKey("users.id"), nullable=False),
+    text("version", nullable=False),
+    text("policy_hash", nullable=False),
+    Column("terms_accepted", Boolean, nullable=False),
+    Column("health_consent", Boolean, nullable=False),
+    Column("adult_declaration", Boolean, nullable=False),
+    text("accepted_at", nullable=False),
+)
+privacy_requests = table(
+    "privacy_requests",
+    text("user_id", ForeignKey("users.id"), nullable=False),
+    text("kind", nullable=False),
+    text("message", nullable=False),
+    text("status", nullable=False),
+    text("response", nullable=False),
+    text("created_at", nullable=False),
+    text("answered_at"),
+)
 sessions = table(
     "sessions",
     text("user_id", ForeignKey("users.id"), nullable=False),
@@ -67,6 +87,7 @@ documents = table(
     text("family_note", nullable=False),
     text("status", nullable=False),
     text("review_note", nullable=False),
+    text("review_guidance", nullable=False, server_default=""),
     text("created_at", nullable=False),
     text("reviewed_at"),
     text("reviewer", nullable=False),
@@ -103,6 +124,7 @@ vaccinations = table(
     text("source_key", unique=True, nullable=False),
     text("reviewer_id", ForeignKey("users.id")),
     text("review_note", nullable=False),
+    text("review_guidance", nullable=False, server_default=""),
     text("created_at", nullable=False),
     text("reviewed_at"),
     CheckConstraint("status IN ('a_conferir','validado','recusado')"),
@@ -145,9 +167,18 @@ notifications = table(
     Column("read", Boolean, nullable=False),
     text("created_at", nullable=False),
 )
+outreach_cases = table(
+    "outreach_cases",
+    text("dependent_id", ForeignKey("dependents.id"), unique=True, nullable=False),
+    text("status", nullable=False),
+    text("created_at", nullable=False),
+    text("updated_at", nullable=False),
+    CheckConstraint("status IN ('aberta','resolvida')"),
+)
 actions = table(
     "outreach_actions",
-    text("pending_id", ForeignKey("pendings.id"), nullable=False),
+    text("pending_id", ForeignKey("pendings.id")),
+    text("case_id", ForeignKey("outreach_cases.id"), nullable=False),
     text("author_id", ForeignKey("users.id"), nullable=False),
     text("kind", nullable=False),
     text("note", nullable=False),
@@ -155,6 +186,21 @@ actions = table(
     text("created_at", nullable=False),
 )
 
+
+dose_plans = table(
+    "dose_plans",
+    text("dependent_id", ForeignKey("dependents.id"), nullable=False),
+    text("vaccine", nullable=False),
+    Column("dose", Integer, nullable=False),
+    text("due_date", nullable=False),
+    text("author_id", ForeignKey("users.id"), nullable=False),
+    text("note", nullable=False),
+    text("status", nullable=False),
+    text("created_at", nullable=False),
+    text("updated_at", nullable=False),
+    text("record_id", ForeignKey("vaccinations.id")),
+    CheckConstraint("status IN ('ativa','concluida','cancelada')"),
+)
 
 push_subscriptions = table(
     "push_subscriptions",
@@ -167,6 +213,41 @@ push_subscriptions = table(
     Column("failures", Integer, nullable=False),
     Column("next_attempt", Integer, nullable=False),
     text("created_at", nullable=False),
+)
+
+
+review_assignments = table(
+    "review_assignments",
+    text("document_id", ForeignKey("documents.id"), nullable=False),
+    text("reviewer_id", ForeignKey("users.id"), nullable=False),
+    text("created_at", nullable=False),
+    text("status", nullable=False, server_default="ativa"),
+    Column("profile_snapshot", JSON, nullable=False),
+    UniqueConstraint("document_id", "reviewer_id"),
+)
+
+reviewer_profiles = table(
+    "reviewer_profiles",
+    text("user_id", ForeignKey("users.id"), unique=True, nullable=False),
+    text("professional_id", unique=True, nullable=False),
+    Column("birth_city_code", String(7), nullable=False),
+    Column("work_city_code", String(7), nullable=False),
+    text("verified_at", nullable=False),
+    text("verification_ref", nullable=False),
+)
+
+review_votes = table(
+    "review_votes",
+    text("assignment_id", ForeignKey("review_assignments.id"), nullable=False),
+    text("target_type", nullable=False),
+    text("target_id", nullable=False),
+    text("decision", nullable=False),
+    text("note", nullable=False),
+    text("guidance", nullable=False),
+    Column("independence_confirmed", Boolean, nullable=False),
+    text("evidence_hash", nullable=False),
+    text("created_at", nullable=False),
+    UniqueConstraint("assignment_id", "target_type", "target_id"),
 )
 
 

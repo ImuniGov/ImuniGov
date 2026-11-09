@@ -171,6 +171,7 @@ def deliver(engine, directory, sender=webpush):
                 vapid_private_key=str(ensure_keys(directory)),
                 vapid_claims={"sub": os.environ.get("VAPID_SUBJECT", "https://localhost")},
                 timeout=10,
+                ttl=86400,
             )
             with engine.begin() as con:
                 con.execute(

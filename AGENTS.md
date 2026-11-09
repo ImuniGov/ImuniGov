@@ -42,3 +42,11 @@ Meta do projeto: integrar na branch `homologacao` o frontend de `main` e a base 
 Executar verificações proporcionais à mudança e registrar resultado no cartão. Alterações funcionais exigem testes dos critérios afetados, incluindo negativas de acesso quando pertinente. Documentação exige conferir links, IDs, cobertura de issues e consistência entre os arquivos.
 
 Não anunciar build ou testes como aprovados se não foram executados. Relatar branch, arquivos/funcionalidade entregues, validação, limitações e próximo cartão. O guia explica os comandos atuais e as lacunas conhecidas.
+
+## Requisitos confirmados nesta evolução
+
+- Revisão exige três profissionais distintos sorteados. Cruzar nascimento e trabalho de cada pessoa com ambos os locais das outras: município, UF e RM/RIDE/AU. Sem trio elegível, aguardar sem relaxar a regra. Não alegar que geografia comprova ausência de vínculo pessoal.
+- Uma recusa deve mostrar à família motivo, providência, profissional e data. Não apagar o arquivo anterior para reenviar.
+- Catálogos públicos do governo e regras clínicas são fontes diferentes. Preservar URL, versão, hash e cópia válida; nunca ativar regra clínica pelo simples download de terminologia.
+- Manter termos e autorização de dados de saúde separados, desmarcados e versionados. Não fabricar aceite de contas antigas nem afirmar execução de revogação apenas porque um pedido foi recebido.
+- Interface deve usar linguagem familiar com precisão clínica, hierarquia orientada à tarefa e decoração com finalidade. Consultar docs/DESIGN_UX.md antes de acrescentar componentes, textos ou novos padrões visuais.

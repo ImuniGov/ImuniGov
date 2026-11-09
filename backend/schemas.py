@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from . import clock
+
 
 class Input(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -25,6 +27,10 @@ class Register(Login):
     name: str = Field(min_length=2, max_length=80)
     password: str = Field(min_length=12, max_length=128)
     consent: Literal[True]
+    healthConsent: Literal[True]
+    adultDeclaration: Literal[True]
+    termsVersion: str = Field(min_length=1, max_length=80)
+    privacyHash: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class Dependent(Input):
@@ -34,7 +40,7 @@ class Dependent(Input):
     @field_validator("birthDate")
     @classmethod
     def birth_valid(cls, value):
-        if value > date.today() or value.year < 1900:
+        if value > clock.today() or value.year < 1900:
             raise ValueError("Data de nascimento inválida.")
         return value
 
@@ -42,7 +48,9 @@ class Dependent(Input):
 class Decision(Input):
     decision: Literal["aprovado", "rejeitado"]
     note: str = Field(default="", max_length=300)
+    guidance: str = Field(default="", max_length=500)
     reviewer: str | None = Field(default=None, max_length=80)  # Legacy field is never trusted for identity.
+    independenceConfirmed: Literal[True]
 
 
 class Candidate(Input):
@@ -53,7 +61,7 @@ class Candidate(Input):
     @field_validator("doseDate")
     @classmethod
     def date_valid(cls, value):
-        if value > date.today() or value.year < 1900:
+        if value > clock.today() or value.year < 1900:
             raise ValueError("Data da dose inválida.")
         return value
 
@@ -61,6 +69,12 @@ class Candidate(Input):
 class RecordDecision(Input):
     decision: Literal["validado", "recusado"]
     note: str = Field(min_length=3, max_length=500)
+    guidance: str = Field(default="", max_length=500)
+    independenceConfirmed: Literal[True]
+
+
+class Impediment(Input):
+    reason: str = Field(min_length=3, max_length=500)
 
 
 class Guidance(Input):
@@ -76,13 +90,24 @@ class Contact(Input):
     @field_validator("contactDate")
     @classmethod
     def valid_date(cls, value):
-        if value > date.today():
+        if value > clock.today():
             raise ValueError("Contato não pode estar no futuro.")
         return value
 
 
 class ReadNotification(Input):
     read: Literal[True]
+
+
+class DosePlan(Input):
+    vaccine: str = Field(min_length=2, max_length=80)
+    dose: int = Field(ge=1, le=10)
+    dueDate: date
+    note: str = Field(min_length=3, max_length=500)
+
+
+class CancelPlan(Input):
+    note: str = Field(min_length=3, max_length=500)
 
 
 class Rule(Input):

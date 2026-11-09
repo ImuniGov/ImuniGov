@@ -16,10 +16,11 @@ from PIL import Image
 from pypdf import PdfReader
 from sqlalchemy import insert, select, update
 
-from . import db
+from . import clock, db
 from .access import one
 from .domain import event, now, recalculate, uid
 from .push import deliver
+from .reviews import assign_waiting
 
 ALIASES = {
     "bcg": "BCG",
@@ -47,7 +48,7 @@ def parse_candidates(text, confidence=0):
         if vaccine and (dose or vaccine == "BCG") and day:
             try:
                 given = date(int(day[3]), int(day[2]), int(day[1]))
-                if given > date.today() or given.year < 1900:
+                if given > clock.today() or given.year < 1900:
                     continue
             except ValueError:
                 continue
@@ -207,8 +208,19 @@ def run():
     args = parser.parse_args()
     engine = db.make_engine()
     data = Path(os.environ.get("IMUNIGUI_DATA_DIR", "data"))
+    last_source_check = 0
     last_refresh = 0
+    last_assignment = 0
     while True:
+        if time.monotonic() - last_source_check > 86400:
+            from .sources import sync_catalog
+
+            sync_catalog(data)
+            last_source_check = time.monotonic()
+        if time.monotonic() - last_assignment > 60:
+            with engine.begin() as con:
+                assign_waiting(con)
+            last_assignment = time.monotonic()
         if time.monotonic() - last_refresh > 3600:
             with engine.begin() as con:
                 for identifier in con.scalars(select(db.dependents.c.id)):

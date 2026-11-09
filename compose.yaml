@@ -23,6 +23,8 @@ services:
       IMUNIGUI_DATA_DIR: /data
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:4173}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Cuiaba}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-https://localhost}
     volumes: &app-volumes
       - uploads-data:/data
     depends_on:

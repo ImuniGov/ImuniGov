@@ -1,108 +1,76 @@
 # Kanban do ImuniGuia
 
-Atualizado em: 2026-11-08 (America/Cuiaba).
-Meta: integrar frontend e funcionalidades em homologacao e evoluir o MVP conforme [roadmap.md](roadmap.md).
-Este é o quadro operacional versionado. Issues guardam o escopo e os critérios de aceitação; GitHub Projects, se utilizado pela equipe, deve refletir os mesmos cartões, sem inventar sincronização.
+Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O quadro registra implementação e aceite restante; código publicado não implica aprovação clínica, jurídica ou operação com dados reais.
 
-## Regras do quadro
+## Regras
 
-- Colunas: A fazer → Em andamento → Em revisão → Concluído; Bloqueado registra impedimento e ação para destravar.
-- Começar no máximo um cartão por responsável. Dividir cartões grandes antes de codificar; manter vínculo ao cartão pai, marco e issue.
-- Toda mudança de etapa exige atualização neste arquivo, evidência, data e próximo passo no mesmo conjunto de alterações.
-- Concluído exige implementação na branch de entrega, critérios da issue satisfeitos, validação registrada e documentação correspondente. Entrega parcial fica aberta com checklist explícito.
-- “Protótipo em teste” não equivale a “concluído em homologacao”.
-- O trabalho de documentação desta entrega não conclui a issue #25 inteira.
-
-## Em andamento
-
-### K06 — Interface completa e integração (M3, #1 e #42)
-
-- Responsável: IA; 2026-11-08. Backend dos cartões predecessores pronto para revisão; concluir validação integrada antes de marcar os marcos.
-- [x] Fluxos privados de dependentes, upload, arquivo, revisão e auditoria implementados no servidor.
-- [x] Interface Família/UBS/ACS implementada; build e lint sem avisos.
-- [x] Navegador: cadastro família/dependente, prévia e envio de imagem, OCR real 94%, conferência de arquivo e confirmação separada de registro pela UBS.
-- [ ] Verificação visual e ponta a ponta pelo navegador.
-- Próximo passo: concluir navegador ACS/mobile e requisitos novos K16/K17.
+- A fazer → Em andamento → Em revisão → Concluído. Bloqueado exige causa e ação concreta.
+- Atualizar este arquivo a cada passo significativo e no mesmo commit do código.
+- Concluído exige todos os critérios e evidências atuais; não usar testes antigos como prova de código posterior.
+- Preservar escopo e histórico das issues. Duplicatas não são encerradas automaticamente.
+- GitHub Projects e este arquivo são superfícies distintas. Não declarar sincronização de colunas sem leitura de confirmação.
 
 ## Em revisão
 
-| Cartão | Implementação / evidência já obtida | Falta para concluir |
+| Cartão / issues | Implementado | Aceite restante |
 | --- | --- | --- |
-| K01 | React/Vite reconstruído com favicon/proxy; npm ci, build e health passam. Contratos de teste implementados na API FastAPI. | Confirmar integração visual e documentar reconstrução e mudanças de segurança. |
-| K02 | SQLAlchemy/Alembic, migração inicial imutável, importação legada idempotente com hashes; backup/restauração com recusa de sobrescrita testados. | Executar também com PostgreSQL em Docker. |
-| K03 | Sessão opaca em cookie HttpOnly, Argon2, CSRF, perfis concedidos só por administração; testes de acesso cruzado passam. | Conferir fluxo no navegador e revisar configuração Docker. |
-| K04 | Nascimento, dono, atualização e isolamento; importação não inventa responsável. | Exercitar formulário e negativas de nascimento no teste integrado. |
-| K05 | Auditoria de ator autenticado, ciência de privacidade, exportação própria; ACS recebe dados mínimos. | Travas de auditoria no banco e política operacional documentada. |
-| K07 | Worker SQL durável, OCR Tesseract/PDF e candidatos a_conferir; testes de falha/idempotência passam. | Exercitar motor real no container, incluindo PDF. |
-| K08 | Decisões de documento e registro separadas; orientação liberada só para responsável; testes do fluxo passam. | Interface e validação visual. |
-| K09 | Regras versionadas para recorte BCG/Pentavalente/VIP, idade e intervalos; recálculo real após decisão. Fonte PNI 2026 consultada. | Revisar limites/cobertura, fonte e comunicar recorte na interface; fora do recorte não equivale a situação regular. |
-| K10 | Notificações idempotentes privadas e leitura persistida; testes passam. | Interface e teste no navegador. |
-| K11 | Fila ACS com motivo, prioridade e contato; ações preservadas após resolução; testes passam. | Interface, filtros e verificação visual. |
-
-## Bloqueado
-
-Nenhum cartão formalmente bloqueado. Docker Desktop iniciado e engine respondeu 29.4.3. Hospedagem pública não faz parte desta entrega: usuário escolheu preparar com Docker.
-
-### K16 / K17 — Novo escopo solicitado: mobile/PWA e próximas doses
-
-- Responsável: IA; 2026-11-08; em preparação dentro da integração K06.
-- [x] K16: manifest e ícones 192/512/maskable, service worker só para assets públicos, tela offline e navegação inferior mobile. Build/lint passam e 4 testes Node verificam a instalação/cache.
-- [ ] K16: revisão no navegador mobile e confirmação de instalação/preparação do service worker.
-- [x] K17: agenda por pessoa da família, datas próximas/atrasadas e avisos persistidos. Web Push opcional com payload genérico, proteção CSRF e revogação ao sair.
-- [x] 18 testes Python passaram: janelas de 30/31/0/-1 dias, família isolada, candidato não confirma dose, aviso idempotente, push sem conteúdo clínico/repetição e retry.
-- [ ] Revisão visual da agenda e complemento de datas individualizadas pela UBS para vacinas fora do recorte. Alertas referem-se à data recomendada da dose, não à validade de lote.
-- Critério: testes de datas e isolamento, instalação/configuração PWA verificadas e interface revisada em 390px.
+| K01 · #23/#42 | React/FastAPI integrados; interface dos três perfis; build e lint | Aceite final do produto e CI remota. |
+| K02 · #19 | PostgreSQL/Alembic, SQLite local, legado idempotente com hashes, testes de migração | Backup/restauração operacional PostgreSQL+arquivos. |
+| K03 · #2/#3/#20 | Sessão opaca, Argon2, CSRF, autorização por objeto/perfil, equipe administrativa | Revisão de implantação HTTPS e escopos reais. |
+| K04 · #4 | Nascimento, responsável, edição e isolamento | Comprovação administrativa de representação e menores (#47). |
+| K05 · #21/#22 | Auditoria imutável, exportação, aceites e solicitações de direitos | Retenção e operação dos direitos; reaceite de contas antigas. |
+| K06 · #1/#9/#12/#13/#42 | Interface mobile/desktop, envio com prévia, original, estados e retorno UBS | Testes com usuários e revisão acessível completa. |
+| K07 · #5/#6 | Tesseract por/eng e Poppler, imagens/PDF, candidatos, falha/retry e transcrição manual | Homologação com amostras reais autorizadas e ampliação do parser além das três vacinas. |
+| K08 · #14/#15 | Arquivo e cada dose separados; orientação, motivo, providência, autor/data | Aceite operacional de UBS e administração de perfis. |
+| K09 · #7/#8/#10 | Regras versionadas BCG/Pentavalente/VIP, idade/intervalos e recálculo | Revisão clínica e expansão da cobertura. |
+| K10 · #11 | Avisos persistentes idempotentes e leitura | Entrega de push em aparelhos autorizados reais. |
+| K11 · #16/#17/#18 | ACS por pessoa, contatos mínimos, prioridade e histórico após resolução | Homologação com equipe ACS e definição de escopo territorial se necessário. |
+| K12 · #24 | Testes funcionais e workflow frontend/backend/Docker | Confirmar resultado da CI do commit publicado. |
+| K13 · #25 | README, roadmap, guia IA, instruções, operação e referências UI/UX | Reprodução da execução por pessoa nova. |
+| K16 · #43 | PWA, ícones, offline público, cache sem dados clínicos, navegação mobile | Instalação Android/iOS real com HTTPS externo. |
+| K17 · #44 | Agenda familiar, janela de 30 dias, atraso, data individual de qualquer vacina e push opt-in | Validar entrega externa de push e expandir regras clínicas. |
+| K18 · #45 | Trio sorteado completo; geografia nascimento/trabalho cruzada; independência, impedimento, votos imutáveis, recusa com motivo/providência | Homologar aprovação positiva nas três contas pelo navegador, concorrência e mudanças de perfil/reatribuição. Verificação documental é administrativa; geografia não prova ausência de vínculo pessoal. |
+| K19 · #46 | Catálogo público RNDS com código/fonte/versão/hash, atualização diária e cópia preservada; fonte do MS na agenda | Ampliar regras clinicamente. Não há API pública de recomendação individual integrada nem prontuário pessoal RNDS. |
+| K20 · #47 | Texto legível no cadastro/conta, aceites separados desmarcados, versão/hash, autoria/horário, solicitações e resposta administrativa | Confirmar canal `example@unemat.bbr`; controlador, retenção, representação; reaceite e execução das providências de revogação/eliminação. |
+| K21 · #48 | Pesquisa e decisões documentadas; linguagem direta, ações por tarefa, menos decoração, leitura maior, foco e toque; Retornos da UBS | Testes moderados com cidadãos/UBS/ACS e revisão completa de acessibilidade. Sem certificação WCAG ou validação clínica integral. |
 
 ## A fazer
 
-| ID | Marco / issues | Entrega | Depende de | Evidência exigida / próximo passo |
-| --- | --- | --- | --- | --- |
-| K12 | M8 · #24 | Consolidar testes e CI | K10, K11 | Testes acrescentados desde K01; CI executa instalação, lint, build, migrações e fluxos relevantes; registrar comandos/resultados. |
-| K13 | M8 · #25 | Completar documentação operacional | K12 | Pessoa nova reproduz execução e fluxo; README, arquitetura, configuração e contribuição sincronizados com código real. |
-| K14 | M8 · #26 | Publicar demonstração validada | K13 | Hospedagem definida, HTTPS/segredos, backup/restauração e fluxo completo verificados; registrar URL e limitações. |
-| K15 | M0 · #1–#9, #27–#41 | Conferir duplicatas e vínculos do quadro remoto | K00 | Comparar escopo e itens de projeto antes de escolher referência; registrar equivalências e preservar histórico. Não encerra automaticamente issues repetidas. |
+| Cartão | Objetivo | Dependência |
+| --- | --- | --- |
+| K14 · #26 | Implantação HTTPS quando houver hospedagem; backup/restauração operacional e teste de aparelhos reais | Usuário escolheu preparar Docker; nenhum provedor público definido. Não tratar ausência de hospedagem como falha da execução local. |
+| K15 · #27–#41 | Avaliar consolidação de duplicatas com a equipe, preservando critérios e vínculos | Referências registradas no roadmap e nas issues. Não fechar em massa. |
+
+## Bloqueado
+
+**Sincronização de colunas do GitHub Projects:** acesso Git autenticado permite issues e push; GraphQL retornou `INSUFFICIENT_SCOPES`, exigindo `read:project` (e `project` para escrita). O conector também recusou escrita com 403. A ação para destravar é disponibilizar autenticação com permissão específica de projetos. Não modificar permissões por conta própria. O quadro versionado permanece disponível e as issues foram atualizadas pela API REST autorizada.
 
 ## Concluído
 
-### K00 — Diagnóstico e planejamento inicial
+**K00 — diagnóstico e planejamento inicial:** main 080b34c, teste 025fbed e 42 issues consultados; roadmap, guia, AGENTS e kanban criados e publicados no commit f6dd262. Não equivale à conclusão das issues funcionais.
 
-- Marco: M0. Relacionado a #23, #25 e #42, sem encerrar essas issues.
-- Data: 2026-11-08.
-- Responsável: IA nesta entrega.
-- [x] Consultar main 080b34c, teste 025fbed e as 42 issues.
-- [x] Registrar a ausência dos fontes React na main e os limites do protótipo.
-- [x] Criar roadmap.md, KANBAN.md, GUIA_IA.md e AGENTS.md; atualizar README.md.
-- [x] Conferir cobertura das 42 issues, vínculos internos e dependências dos cartões.
-- Evidência: arquivos desta entrega e revisões imutáveis citadas no roadmap. Inspeção estática; não houve validação funcional do aplicativo.
-- Próximo passo: K01.
+## Evidências desta etapa
 
-## Histórico de mudanças
+- API/SQLite: testes de fluxo, acesso cruzado, calendário, avisos, trio, comparações geográficas cruzadas/RIDE, recusa para família, independência, privacidade, indisponibilidade RNDS e imutabilidade. **32 passaram, 3 pulados** no Windows por ausência dos motores OCR locais; OCR é exigido no Docker.
+- Docker/PostgreSQL: execução dos mesmos fluxos em schemas temporários próprios; OCR real de imagem, PDF escaneado e PDF com texto. **35 passaram** na execução final com `REQUIRE_OCR=1`, incluindo OCR real e testes negativos de imutabilidade.
+- Frontend: lint sem avisos, formatação e build passaram; **4 testes PWA passaram** (ícones, cache público e exclusão de API privada).
+- Consulta real de RNDS: `backend.manage sync-sources` retornou `ok: true`; snapshot oficial contém **80 conceitos de vacinas ativas** de 118 imunobiológicos, versão publicada pela fonte `1.0.0-release`. A data de consulta não é a data de publicação do catálogo.
+- Navegador: termos abrem com leitura completa e caixas desmarcadas; família e UBS; devolução de arquivo sintético com motivo e providência; retorno visível à família; mobile 390px e 320px sem transbordamento horizontal do documento, desktop 1366px e navegação. Reenvio abre com a pessoa correta selecionada. Não houve aceite de termos reais em nome do usuário nem envio de dados de pacientes.
+- CI remota: pendente até push e leitura do resultado. Hospedagem pública, push externo real, aparelhos e usuários reais não foram declarados verificados.
 
-| Data | Cartão | Transição | Evidência / próximo passo |
-| --- | --- | --- | --- |
-| 2026-11-08 | K00 | Em andamento → Concluído | Diagnóstico, quatro documentos de planejamento e README; continuar por K01. |
-| 2026-11-08 | K01–K15 | Criados em A fazer | Ordem, dependências e critérios acima; issues continuam abertas. |
+## Sincronização remota
 
-## Modelo para atualizar um cartão
+- Issues novas: #43 PWA, #44 agenda, #45 revisão tripla, #46 governo, #47 termos e dados de saúde, #48 design/linguagem.
+- **42 issues atualizadas e conferidas na resposta da API REST**, #1–#42. A atualização preserva descrição original, informa implementação atual, limitações e referência das duplicatas. Todas permanecem abertas para aceite.
+- GitHub Projects: colunas não atualizadas por ausência de permissão; não confundir atualização de issues com movimentação do quadro.
 
-Ao detalhar um cartão, mover sua linha para a coluna correta ou substituí-la por uma ficha (sem duplicar o ID):
+## Histórico
 
-- ID e título:
-- Marco / issue / cartão pai:
-- Estado, responsável e data:
-- Objetivo e critérios de aceitação:
-- Checklist feito / restante:
-- Dependências:
-- Evidência: arquivos, comandos e resultados; commit/PR quando disponível:
-- Bloqueio e ação para destravar:
-- Próximo passo:
-
-Atualizar também o histórico. Se GitHub Projects ou issues não puderem ser sincronizados, registrar o alvo, a transição pendente e o motivo; manter a entrega de código e o quadro versionado coerentes. Não declarar o quadro remoto atualizado sem leitura de confirmação.
-
-| 2026-11-08 | K01 | A fazer → Em andamento | Histórico sem fontes React; reconstrução autorizada pelo novo escopo. Docker escolhido pelo usuário. |
-
-| 2026-11-08 | K01–K11 | Implementação de base → Em revisão; K06 em andamento | 9 testes passam, build passa, migração/importação/backup/restauração sintéticos verificados em SQLite. Revisão Docker e interface pendentes. |
-
-Sincronização remota pendente: GitHub Projects não tem ferramenta de edição de colunas nesta sessão. Escrita do conector GitHub retornou 403 na entrega anterior; commits/push são feitos pelo Git autenticado. Não declarar issues encerradas.
-
-| 2026-11-08 | K06/K16/K17 | Implementação → Em revisão parcial | React completo, mobile/PWA e agenda; 18 testes Python e 4 testes PWA passaram. Docker em reconstrução; PostgreSQL completo, mobile e docs ainda em validação. |
+| Data | Passo | Evidência e próximo passo |
+| --- | --- | --- |
+| 2026-11-08 | K00 concluído | Diagnóstico e planejamento publicados. |
+| 2026-11-08 | Base K01–K11 implementada; em revisão | API segura, persistência, OCR e fluxos; commits 8299924 e c74a76f publicados. |
+| 2026-11-08 | K16/K17 implementados; em revisão | Mobile/PWA, agenda, avisos e datas UBS; testes e revisão visual. |
+| 2026-11-08 | K18/K20 implementados; em revisão parcial | Trio independente, votos e termos específicos. Pendências operacionais acima. |
+| 2026-11-08 | K19/K21 implementados; em revisão | RNDS público e revisão de UX fundamentada. Fontes em docs/DESIGN_UX.md; próximos passos clínicos/acessíveis explícitos. |
+| 2026-11-08 | Issues e documentação atualizadas | Novos requisitos #43–#48 e progresso #1–#42. Publicar commits e verificar CI. |
