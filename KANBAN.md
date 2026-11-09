@@ -10,11 +10,11 @@ Atualizado: 2026-11-08 (America/Cuiaba). Branch de entrega: **homologacao**. O q
 - Preservar escopo e histórico das issues. Duplicatas não são encerradas automaticamente.
 - GitHub Projects e este arquivo são superfícies distintas. Não declarar sincronização de colunas sem leitura de confirmação.
 
-## Em andamento
+## Último avanço em revisão
 
 **K20.1 · #47 — continuidade e revogação da autorização — Em revisão.** Novo aceite explícito para contas antigas/termos alterados; revogação suspende processamento, acesso da equipe e avisos externos, preservando consulta/exportação própria. Resultado OCR em andamento é descartado mesmo se houver reaceite durante a leitura. Declaração `representationConfirmed` exigida no servidor e registrada na auditoria; não substitui prova do vínculo.
 
-Evidência: **39 testes passaram no Docker/PostgreSQL com OCR real**, incluindo quatro cenários de ciclo de autorização; lint, formatação e build passaram. No navegador, conta anterior exibiu pausa, texto vigente e caixas desmarcadas; nenhum aceite foi feito em nome do usuário. Nova versão `2026-11-08.3`; anterior preservada. Migração 010 não cria autorizações antigas. CI deste avanço será conferida após push. Eliminação, retenção e comprovação documental continuam pendentes na #47.
+Evidência: **39 testes passaram no Docker/PostgreSQL com OCR real**, incluindo quatro cenários de ciclo de autorização; lint, formatação e build passaram. No navegador, conta anterior exibiu pausa, texto vigente e caixas desmarcadas; nenhum aceite foi feito em nome do usuário. Nova versão `2026-11-08.3`; anterior preservada. Migração 010 não cria autorizações antigas. [CI deste avanço aprovada](https://github.com/ImuniGov/ImuniGov/actions/runs/42552984180) no código `ed96a06`, nos três jobs. Eliminação, retenção e comprovação documental continuam pendentes na #47.
 
 ## Em revisão
 
@@ -85,4 +85,4 @@ Código publicado: [57f4e3c](https://github.com/ImuniGov/ImuniGov/commit/57f4e3c
 
 | 2026-11-08 | Validação remota confirmada | Interface, backend e Docker/PostgreSQL passaram na execução 42551947165. Registro documental publicado sem alteração funcional. |
 
-| 2026-11-08 | K20.1 em revisão | Suspensão efetiva, reaceite explícito e representação no servidor; 39 testes Docker passaram. CI do novo commit pendente. |
+| 2026-11-08 | K20.1 em revisão | Suspensão efetiva, reaceite explícito e representação no servidor; 39 testes Docker passaram. CI ed96a06 aprovada nos três jobs, execução 42552984180. |

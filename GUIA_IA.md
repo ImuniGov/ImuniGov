@@ -16,7 +16,7 @@ Atualizado em 2026-11-08 (America/Cuiaba). Ler AGENTS.md, roadmap.md e KANBAN.md
 
 ## Próxima ordem de trabalho
 
-1. CI do código 57f4e3c já passou em frontend, backend e Docker/PostgreSQL (execução 42551947165). Não repetir testes aprovados sem mudança ou falha; verificar os checks dos próximos commits funcionais.
+1. CI mais recente do código ed96a06 passou em frontend, backend e Docker/PostgreSQL (execução 42552984180), com 39 testes Docker. Não repetir testes aprovados sem mudança ou falha; verificar os checks dos próximos commits funcionais.
 2. Fechar lacunas de K18/#45: mudança/reatribuição de perfil profissional, confirmação administrativa de documentos e revisão de concorrência/homologação por três contas.
 3. Fechar K20/#47: aceite de nova versão e suspensão por revogação implementados; execução monitorada de pedidos de eliminação, comprovação de representação, canal e retenção reais. A revogação suspende o processamento voluntário, novos acessos da equipe e avisos externos; resultados OCR anteriores à interrupção são descartados mesmo se houver novo aceite durante a leitura. Consulta/exportação própria continua disponível. Eliminação e retenção ainda exigem procedimento administrativo.
 4. Revisão clínica das regras, ampliação explícita da cobertura e testes de vacinas/condições especiais. Não usar dados agregados de doses aplicadas como calendário.
