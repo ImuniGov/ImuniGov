@@ -29,7 +29,7 @@ def lock_roster(con):
 
 def work_pending(con, document_id):
     document = con.execute(select(db.documents).where(db.documents.c.id == document_id)).mappings().one()
-    if document["status"] == "rejeitado":
+    if document["status"] == "rejeitado" or document["review_hold"]:
         return False
     return (
         document["status"] == "pendente"
@@ -161,6 +161,8 @@ def assign_document(con, document_id):
     if not allowed(con, owner, lock=True):
         return assignments(con, document_id)
     con.execute(select(db.documents.c.id).where(db.documents.c.id == document_id).with_for_update())
+    if con.scalar(select(db.documents.c.review_hold).where(db.documents.c.id == document_id)):
+        return assignments(con, document_id)
     if con.execute(
         select(db.review_assignments.c.id).where(
             db.review_assignments.c.document_id == document_id,
@@ -266,7 +268,17 @@ def votes(con, target_type, target_id, active_only=True, round_number=None):
 
 
 def summary(con, document_id, target_type, target_id, user, terminal=False):
-    round_number = con.scalar(select(db.documents.c.review_round).where(db.documents.c.id == document_id))
+    doc = (
+        con.execute(
+            select(db.documents.c.review_round, db.documents.c.review_hold).where(
+                db.documents.c.id == document_id
+            )
+        )
+        .mappings()
+        .one()
+    )
+    round_number = doc["review_round"]
+    on_hold = bool(doc["review_hold"])
     if terminal:
         historical = votes(con, target_type, target_id, active_only=False)
         if historical:
@@ -284,9 +296,10 @@ def summary(con, document_id, target_type, target_id, user, terminal=False):
     family = user["role"] == "familia"
     return {
         "round": round_number,
+        "onHold": on_hold,
         "required": QUORUM,
         "assigned": len(panel),
-        "waitingForTeam": not terminal and len(panel) < QUORUM,
+        "waitingForTeam": not terminal and (on_hold or len(panel) < QUORUM),
         "votesReceived": len(decisions) if family or terminal else None,
         "approvals": sum(v["decision"] == "aprovar" for v in decisions) if family or terminal else None,
         "myVote": {
@@ -330,6 +343,10 @@ def cast_vote(
         .mappings()
         .one()
     )
+    if document["review_hold"]:
+        raise HTTPException(
+            409, "Conferência suspensa por impedimento após voto. Aguarde a resolução administrativa."
+        )
     if document["review_round"] != expected_round:
         raise HTTPException(409, "A equipe ou a rodada mudou. Atualize a caderneta antes de votar novamente.")
     assignment = require_assignment(con, document_id, user)
@@ -407,14 +424,151 @@ def cast_vote(
     return summary(con, document_id, target_type, target_id, user, terminal=bool(final_rejection or approved))
 
 
+def _record_late_incident(con, doc, assignment, reporter_id, reason, origin, administrative_ref):
+    if con.execute(
+        select(db.review_incidents.c.id).where(db.review_incidents.c.assignment_id == assignment["id"])
+    ).first():
+        raise HTTPException(409, "Impedimento pós-voto já registrado para esta atribuição.")
+    incident_id = uid()
+    con.execute(
+        insert(db.review_incidents).values(
+            id=incident_id,
+            document_id=doc["id"],
+            assignment_id=assignment["id"],
+            reporter_id=reporter_id,
+            source_round=doc["review_round"],
+            reason=reason.strip(),
+            origin=origin,
+            administrative_ref=administrative_ref.strip(),
+            created_at=now(),
+        )
+    )
+    con.execute(
+        update(db.review_assignments)
+        .where(db.review_assignments.c.id == assignment["id"])
+        .values(status="impedido")
+    )
+    if doc["status"] != "pendente":
+        event(
+            con,
+            reporter_id,
+            "document",
+            doc["id"],
+            "decisao_documento_suspensa_impedimento",
+            json.dumps(
+                {
+                    "round": doc["review_round"],
+                    "status": doc["status"],
+                    "reviewer": doc["reviewer"],
+                    "note": doc["review_note"],
+                    "guidance": doc["review_guidance"],
+                    "at": doc["reviewed_at"],
+                },
+                ensure_ascii=False,
+            ),
+        )
+    con.execute(
+        update(db.documents)
+        .where(db.documents.c.id == doc["id"])
+        .values(
+            review_hold=True,
+            status="pendente",
+            reviewer="",
+            review_note="",
+            review_guidance="",
+            reviewed_at=None,
+        )
+    )
+    for rec in (
+        con.execute(
+            select(db.vaccinations).where(
+                db.vaccinations.c.document_id == doc["id"],
+                db.vaccinations.c.status != "a_conferir",
+            )
+        )
+        .mappings()
+        .all()
+    ):
+        event(
+            con,
+            reporter_id,
+            "vaccination",
+            rec["id"],
+            "decisao_registro_suspensa_impedimento",
+            json.dumps(
+                {
+                    "round": doc["review_round"],
+                    "status": rec["status"],
+                    "reviewer_id": rec["reviewer_id"],
+                    "note": rec["review_note"],
+                    "guidance": rec["review_guidance"],
+                    "at": rec["reviewed_at"],
+                },
+                ensure_ascii=False,
+            ),
+        )
+        con.execute(
+            update(db.vaccinations)
+            .where(db.vaccinations.c.id == rec["id"])
+            .values(
+                status="a_conferir",
+                reviewer_id=None,
+                review_note="",
+                review_guidance="",
+                reviewed_at=None,
+            )
+        )
+        con.execute(
+            update(db.dose_plans)
+            .where(db.dose_plans.c.record_id == rec["id"], db.dose_plans.c.status == "concluida")
+            .values(status="ativa", record_id=None, updated_at=now())
+        )
+    event(con, reporter_id, "assignment", assignment["id"], "impedimento_pos_voto_declarado", reason.strip())
+    event(
+        con,
+        reporter_id,
+        "document",
+        doc["id"],
+        "conferencia_suspensa_impedimento",
+        f"Impedimento após voto ({origin}); conferência suspensa aguardando análise administrativa.",
+    )
+    dependent = (
+        con.execute(select(db.dependents).where(db.dependents.c.id == doc["dependent_id"])).mappings().one()
+    )
+    recalculate(con, doc["dependent_id"], reporter_id)
+    notify(
+        con,
+        dependent["owner_id"],
+        f"review-hold:{doc['id']}:{incident_id}",
+        f"{dependent['name']}: uma conferência foi suspensa por impedimento declarado após voto e aguarda nova equipe independente.",
+    )
+    return {"hold": True, "incidentId": incident_id}
+
+
 def declare_impediment(con, document_id, user, reason):
     lock_roster(con)
-    con.execute(select(db.documents.c.id).where(db.documents.c.id == document_id).with_for_update())
+    owner = con.scalar(
+        select(db.dependents.c.owner_id)
+        .join(db.documents, db.documents.c.dependent_id == db.dependents.c.id)
+        .where(db.documents.c.id == document_id)
+    )
+    if owner:
+        con.execute(select(db.users.c.id).where(db.users.c.id == owner).with_for_update())
+    doc = (
+        con.execute(select(db.documents).where(db.documents.c.id == document_id).with_for_update())
+        .mappings()
+        .one()
+    )
     own = require_assignment(con, document_id, user)
     if con.execute(select(db.review_votes.c.id).where(db.review_votes.c.assignment_id == own["id"])).first():
-        raise HTTPException(
-            409,
-            "Já existe voto seu neste caso. A equipe administrativa deve avaliar o impedimento sem apagar o histórico.",
+        return _record_late_incident(
+            con,
+            doc,
+            own,
+            user["id"],
+            reason,
+            origin="profissional",
+            administrative_ref="pendente_analise_administrativa",
         )
     con.execute(
         update(db.review_assignments).where(db.review_assignments.c.id == own["id"]).values(status="impedido")
@@ -428,7 +582,165 @@ def declare_impediment(con, document_id, user, reason):
         "redistribuicao_solicitada",
         "Um revisor declarou impedimento; novo sorteio respeitará todas as restrições.",
     )
-    assign_document(con, document_id)
+    if not doc["review_hold"]:
+        assign_document(con, document_id)
+    return {"hold": False, "incidentId": None}
+
+
+def report_incident(con, document_id, reviewer_email, administrative_ref, reason):
+    if not 3 <= len(reason.strip()) <= 500 or not 3 <= len(administrative_ref.strip()) <= 200:
+        raise ValueError("Informe motivo (3–500 caracteres) e referência administrativa (3–200).")
+    lock_roster(con)
+    owner = con.scalar(
+        select(db.dependents.c.owner_id)
+        .join(db.documents, db.documents.c.dependent_id == db.dependents.c.id)
+        .where(db.documents.c.id == document_id)
+    )
+    if owner:
+        con.execute(select(db.users.c.id).where(db.users.c.id == owner).with_for_update())
+    doc = (
+        con.execute(select(db.documents).where(db.documents.c.id == document_id).with_for_update())
+        .mappings()
+        .first()
+    )
+    if not doc:
+        raise ValueError("Caderneta não encontrada.")
+    reviewer_id = con.scalar(
+        select(db.users.c.id).where(db.users.c.email == reviewer_email.lower(), db.users.c.role == "ubs")
+    )
+    if not reviewer_id:
+        raise ValueError("Profissional não encontrado.")
+    assignment = (
+        con.execute(
+            select(db.review_assignments).where(
+                db.review_assignments.c.document_id == document_id,
+                db.review_assignments.c.reviewer_id == reviewer_id,
+                db.review_assignments.c.review_round == doc["review_round"],
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if not assignment:
+        raise ValueError("Profissional não pertence à rodada atual desta caderneta.")
+    if not con.execute(
+        select(db.review_votes.c.id).where(db.review_votes.c.assignment_id == assignment["id"])
+    ).first():
+        raise ValueError("Não há voto registrado nesta atribuição; use o impedimento antes do voto.")
+    try:
+        return _record_late_incident(
+            con,
+            doc,
+            dict(assignment),
+            reviewer_id,
+            reason,
+            origin="administracao",
+            administrative_ref=administrative_ref,
+        )
+    except HTTPException as exc:
+        raise ValueError(exc.detail) from exc
+
+
+def resolve_incident(con, incident_id, administrative_ref, note):
+    if not 3 <= len(note.strip()) <= 500 or not 3 <= len(administrative_ref.strip()) <= 200:
+        raise ValueError("Informe nota de análise (3–500 caracteres) e referência administrativa (3–200).")
+    lock_roster(con)
+    incident = (
+        con.execute(select(db.review_incidents).where(db.review_incidents.c.id == incident_id))
+        .mappings()
+        .first()
+    )
+    if not incident:
+        raise ValueError("Ocorrência de impedimento não encontrada.")
+    if con.execute(
+        select(db.review_resolutions.c.id).where(db.review_resolutions.c.incident_id == incident_id)
+    ).first():
+        raise ValueError("Ocorrência já resolvida; histórico imutável.")
+    document_id = incident["document_id"]
+    owner = con.scalar(
+        select(db.dependents.c.owner_id)
+        .join(db.documents, db.documents.c.dependent_id == db.dependents.c.id)
+        .where(db.documents.c.id == document_id)
+    )
+    if owner:
+        con.execute(select(db.users.c.id).where(db.users.c.id == owner).with_for_update())
+    con.execute(select(db.documents.c.id).where(db.documents.c.id == document_id).with_for_update())
+    resolution_id = uid()
+    con.execute(
+        insert(db.review_resolutions).values(
+            id=resolution_id,
+            incident_id=incident_id,
+            administrative_ref=administrative_ref.strip(),
+            note=note.strip(),
+            created_at=now(),
+        )
+    )
+    event(
+        con,
+        None,
+        "review_incident",
+        incident_id,
+        "impedimento_pos_voto_resolvido",
+        f"{administrative_ref.strip()}: {note.strip()}",
+    )
+    unresolved = con.scalar(
+        select(db.review_incidents.c.id)
+        .outerjoin(db.review_resolutions, db.review_resolutions.c.incident_id == db.review_incidents.c.id)
+        .where(
+            db.review_incidents.c.document_id == document_id,
+            db.review_resolutions.c.id.is_(None),
+        )
+        .limit(1)
+    )
+    if unresolved:
+        return {
+            "resolved": True,
+            "resolutionId": resolution_id,
+            "documentId": document_id,
+            "hold": True,
+        }
+    con.execute(update(db.documents).where(db.documents.c.id == document_id).values(review_hold=False))
+    restart_round(
+        con,
+        document_id,
+        f"Impedimento pós-voto avaliado administrativamente ({administrative_ref.strip()}); nova rodada independente aberta.",
+    )
+    panel = assign_document(con, document_id)
+    new_round = con.scalar(select(db.documents.c.review_round).where(db.documents.c.id == document_id))
+    notify(
+        con,
+        owner,
+        f"review-round:{document_id}:{new_round}",
+        "O impedimento informado após voto foi analisado pela administração. Uma nova equipe independente conferirá a caderneta, preservando o histórico anterior.",
+    )
+    return {
+        "resolved": True,
+        "resolutionId": resolution_id,
+        "documentId": document_id,
+        "hold": False,
+        "newRound": new_round,
+        "assigned": len(panel),
+        "waitingForTeam": len(panel) < QUORUM,
+    }
+
+
+def list_incidents(con, only_open=False):
+    query = (
+        select(
+            db.review_incidents,
+            db.users.c.email.label("reporter_email"),
+            db.review_resolutions.c.id.label("resolution_id"),
+            db.review_resolutions.c.administrative_ref.label("resolution_ref"),
+            db.review_resolutions.c.note.label("resolution_note"),
+            db.review_resolutions.c.created_at.label("resolved_at"),
+        )
+        .join(db.users, db.users.c.id == db.review_incidents.c.reporter_id)
+        .outerjoin(db.review_resolutions, db.review_resolutions.c.incident_id == db.review_incidents.c.id)
+        .order_by(db.review_incidents.c.created_at.desc())
+    )
+    if only_open:
+        query = query.where(db.review_resolutions.c.id.is_(None))
+    return [dict(r) for r in con.execute(query).mappings()]
 
 
 def change_reviewer(

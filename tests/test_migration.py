@@ -66,10 +66,14 @@ def test_migrate_legacy_backup_restore(tmp_path, monkeypatch):
     before = backup(engine, target, archive)
     restored_dir = tmp_path / "restored"
     restored_dir.mkdir()
-    restored_engine = db.make_engine("sqlite:///" + str(restored_dir / "app.sqlite3"))
-    db.metadata.create_all(restored_engine)
+    restored_url = "sqlite:///" + str(restored_dir / "app.sqlite3")
+    monkeypatch.setenv("DATABASE_URL", restored_url)
+    command.upgrade(Config("alembic.ini"), "head")
+    restored_engine = db.make_engine(restored_url)
     assert restore(restored_engine, restored_dir, archive) == before
     assert (restored_dir / "uploads" / "legacy.png").read_bytes() == original
+    with restored_engine.connect() as con:
+        assert con.execute(select(db.review_gate)).mappings().all() == [{"id": "roster", "revision": 1}]
     with pytest.raises(ValueError, match="novo e vazio"):
         restore(restored_engine, restored_dir, archive)
     (legacy / "uploads" / "legacy.png").write_bytes(b"changed")
@@ -77,6 +81,99 @@ def test_migrate_legacy_backup_restore(tmp_path, monkeypatch):
         import_legacy(legacy, engine, target)
     engine.dispose()
     restored_engine.dispose()
+
+
+def test_backup_restore_compatibility_and_recovery(tmp_path, monkeypatch):
+    import io
+    import json
+    import tarfile
+
+    source_dir = tmp_path / "source"
+    (source_dir / "uploads").mkdir(parents=True)
+    blob = b"synthetic evidence"
+    (source_dir / "uploads" / "doc.png").write_bytes(blob)
+    source_url = "sqlite:///" + str(source_dir / "app.sqlite3")
+    monkeypatch.setenv("DATABASE_URL", source_url)
+    command.upgrade(Config("alembic.ini"), "head")
+    source_engine = db.make_engine(source_url)
+    with source_engine.begin() as con:
+        con.execute(
+            insert(db.dependents).values(
+                id="dep1", owner_id=None, name="Sintético", birth_date="2026-01-01", created_at=now()
+            )
+        )
+        con.execute(
+            insert(db.documents).values(
+                id="doc1",
+                dependent_id="dep1",
+                original_name="doc.png",
+                stored_name="doc.png",
+                content_type="image/png",
+                size=len(blob),
+                sha256=hashlib.sha256(blob).hexdigest(),
+                vaccine="BCG",
+                dose_date="2026-01-02",
+                family_note="",
+                status="pendente",
+                review_note="",
+                reviewer="",
+                created_at=now(),
+            )
+        )
+    valid_archive = tmp_path / "valid.tgz"
+    counts = backup(source_engine, source_dir, valid_archive)
+
+    # 1. Destination with outdated Alembic revision must be rejected.
+    old_dir = tmp_path / "old_dest"
+    old_dir.mkdir()
+    old_url = "sqlite:///" + str(old_dir / "app.sqlite3")
+    monkeypatch.setenv("DATABASE_URL", old_url)
+    command.upgrade(Config("alembic.ini"), "011")
+    old_engine = db.make_engine(old_url)
+    with pytest.raises(ValueError, match="migração"):
+        restore(old_engine, old_dir, valid_archive)
+    old_engine.dispose()
+
+    # 2. Corrupted archive file hash or unknown column rolls back cleanly, allowing recovery.
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+    dest_url = "sqlite:///" + str(dest_dir / "app.sqlite3")
+    monkeypatch.setenv("DATABASE_URL", dest_url)
+    command.upgrade(Config("alembic.ini"), "head")
+    dest_engine = db.make_engine(dest_url)
+
+    tampered = tmp_path / "tampered.tgz"
+    with tarfile.open(valid_archive, "r:gz") as src, tarfile.open(tampered, "x:gz") as dst:
+        manifest = json.load(src.extractfile("database.json"))
+        raw = json.dumps(manifest).encode()
+        info = tarfile.TarInfo("database.json")
+        info.size = len(raw)
+        dst.addfile(info, io.BytesIO(raw))
+        bad_bytes = b"corrupted bytes"
+        f_info = tarfile.TarInfo("uploads/doc.png")
+        f_info.size = len(bad_bytes)
+        dst.addfile(f_info, io.BytesIO(bad_bytes))
+
+    with pytest.raises(ValueError, match="Hash divergente"):
+        restore(dest_engine, dest_dir, tampered)
+    assert not (dest_dir / "uploads" / "doc.png").exists()
+
+    bad_schema = tmp_path / "bad_schema.tgz"
+    with tarfile.open(valid_archive, "r:gz") as src, tarfile.open(bad_schema, "x:gz") as dst:
+        manifest = json.load(src.extractfile("database.json"))
+        manifest["tables"]["documents"][0]["unknown_col"] = "invalid"
+        raw = json.dumps(manifest).encode()
+        info = tarfile.TarInfo("database.json")
+        info.size = len(raw)
+        dst.addfile(info, io.BytesIO(raw))
+    with pytest.raises(ValueError, match="incompatíveis"):
+        restore(dest_engine, dest_dir, bad_schema)
+
+    # Recovery: after failed attempts, valid archive restores cleanly into the same migrated DB.
+    assert restore(dest_engine, dest_dir, valid_archive) == counts
+    assert (dest_dir / "uploads" / "doc.png").read_bytes() == blob
+    source_engine.dispose()
+    dest_engine.dispose()
 
 
 def test_outreach_upgrade_preserves_prior_contacts(tmp_path, monkeypatch):

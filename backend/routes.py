@@ -127,6 +127,17 @@ def dependents(request: Request, user=User):
                         .select_from(db.documents)
                         .where(db.documents.c.dependent_id == r["id"])
                     ),
+                    "representationVerified": bool(
+                        con.scalar(
+                            select(func.count())
+                            .select_from(db.audit)
+                            .where(
+                                db.audit.c.target_type == "dependent",
+                                db.audit.c.target_id == r["id"],
+                                db.audit.c.event == "representacao_familiar_verificada",
+                            )
+                        )
+                    ),
                 }
                 for r in con.execute(query).mappings()
             ]
@@ -152,7 +163,14 @@ def add_dependent(body: s.Dependent, request: Request, user=User):
             "Responsável declarou titularidade ou representação legal.",
         )
         recalculate(con, item["id"], user["id"])
-    return {"item": {**item, "birthDate": item["birth_date"], "document_count": 0}}
+    return {
+        "item": {
+            **item,
+            "birthDate": item["birth_date"],
+            "document_count": 0,
+            "representationVerified": False,
+        }
+    }
 
 
 @router.patch("/api/dependents/{identifier}")
@@ -382,8 +400,11 @@ def document_audit(documentId: str, request: Request, user=User):
                 if not (
                     user["role"] == "ubs"
                     and current["status"] == "pendente"
-                    and r["event"].startswith("voto_independente_")
-                    and r["actor_id"] != user["id"]
+                    and (
+                        (r["event"].startswith("voto_independente_") and r["actor_id"] != user["id"])
+                        or r["event"]
+                        in ("rodada_anterior_preservada", "decisao_documento_suspensa_impedimento")
+                    )
                 )
             ]
         }

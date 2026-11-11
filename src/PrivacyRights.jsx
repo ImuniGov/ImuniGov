@@ -77,7 +77,11 @@ export default function PrivacyRights({ act, busy, onError, onPrivacyChange }) {
         <div className="feedback-entry" key={i.id}>
           <strong>
             Pedido {i.id.slice(0, 8)} ·{" "}
-            {i.status === "respondida" ? "Respondido" : "Recebido"}
+            {i.status === "executada"
+              ? "Executado"
+              : i.status === "respondida"
+                ? "Respondido"
+                : "Recebido"}
           </strong>
           <p>{i.message}</p>
           {i.response && (

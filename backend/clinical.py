@@ -30,7 +30,11 @@ def processing(identifier: str, request: Request, user=User):
 def retry(identifier: str, request: Request, user=User):
     sec.role(user, "ubs")
     with request.app.state.engine.begin() as con:
-        document(con, identifier, user)
+        item, _ = document(con, identifier, user)
+        if item["review_hold"]:
+            raise HTTPException(
+                409, "Conferência suspensa por impedimento após voto. Aguarde a resolução administrativa."
+            )
         result = con.execute(
             update(db.jobs)
             .where(db.jobs.c.document_id == identifier, db.jobs.c.status.in_(["failed", "unreadable"]))
@@ -73,6 +77,10 @@ def manual_candidate(identifier: str, body: s.Candidate, request: Request, user=
     sec.role(user, "ubs")
     with request.app.state.engine.begin() as con:
         item, dependent = document(con, identifier, user)
+        if item["review_hold"]:
+            raise HTTPException(
+                409, "Conferência suspensa por impedimento após voto. Aguarde a resolução administrativa."
+            )
         if dependent["birth_date"] and body.doseDate.isoformat() < dependent["birth_date"]:
             raise HTTPException(400, "Data anterior ao nascimento.")
         key = hashlib.sha256(f"{identifier}:{body.vaccine}:{body.dose}:{body.doseDate}".encode()).hexdigest()
@@ -175,16 +183,28 @@ def rule_sets(request: Request, user=User):
 def pending_list(identifier: str, request: Request, user=User):
     with request.app.state.engine.connect() as con:
         person(con, identifier, user)
+        rows = [
+            {
+                **dict(r),
+                "reason": r["reason"]
+                if r["status"] == "aberta"
+                else f"Motivo anterior (resolvido): {r['reason']}",
+                "historical_reason": r["reason"] if r["status"] == "resolvida" else None,
+                "evaluation_type": "calculo_automatico_sujeito_a_conferencia_ubs"
+                if r["status"] == "aberta"
+                else "conferida_e_resolvida_pela_ubs",
+            }
+            for r in con.execute(
+                select(db.pendings, db.rules.c.version.label("rule_version"), db.rules.c.source)
+                .join(db.rules, db.rules.c.id == db.pendings.c.rule_set_id)
+                .where(db.pendings.c.dependent_id == identifier)
+                .order_by(db.pendings.c.status.asc(), db.pendings.c.updated_at.desc())
+            ).mappings()
+        ]
         return {
-            "items": [
-                dict(r)
-                for r in con.execute(
-                    select(db.pendings, db.rules.c.version.label("rule_version"), db.rules.c.source)
-                    .join(db.rules, db.rules.c.id == db.pendings.c.rule_set_id)
-                    .where(db.pendings.c.dependent_id == identifier)
-                    .order_by(db.pendings.c.updated_at.desc())
-                ).mappings()
-            ]
+            "items": rows,
+            "open": [r for r in rows if r["status"] == "aberta"],
+            "resolved": [r for r in rows if r["status"] == "resolvida"],
         }
 
 
@@ -257,7 +277,7 @@ def add_guidance(identifier: str, body: s.Guidance, request: Request, user=User)
             notify(
                 con, dependent["owner_id"], f"guidance:{item['id']}", "Uma orientação da UBS está disponível."
             )
-        return {"item": item}
+        return {"item": {**item, "author_name": user["name"]}}
 
 
 @router.get("/api/v1/dependents/{identifier}/dose-plans")
@@ -340,7 +360,12 @@ def guidance(identifier: str, request: Request, user=User):
     with request.app.state.engine.connect() as con:
         person(con, identifier, user)
         query = (
-            select(db.guidance, db.users.c.name.label("author_name"))
+            select(
+                db.guidance,
+                db.users.c.name.label("author_name"),
+                db.pendings.c.vaccine,
+                db.pendings.c.dose,
+            )
             .join(db.users, db.users.c.id == db.guidance.c.author_id)
             .join(db.pendings, db.pendings.c.id == db.guidance.c.pending_id)
             .where(db.pendings.c.dependent_id == identifier)
@@ -516,8 +541,8 @@ def impediment(identifier: str, body: s.Impediment, request: Request, user=User)
     with request.app.state.engine.begin() as con:
         lock_roster(con)
         document(con, identifier, user)
-        declare_impediment(con, identifier, user, body.reason)
-    return {"ok": True}
+        result = declare_impediment(con, identifier, user, body.reason)
+    return {"ok": True, **result}
 
 
 @router.get("/api/v1/family/feedback")

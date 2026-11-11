@@ -7,7 +7,15 @@ from sqlalchemy.exc import DBAPIError
 from test_app import approve_document, approve_record, dependent, upload
 
 from backend import db
-from backend.reviews import assign_document, change_reviewer
+from backend.domain import now, uid
+from backend.reviews import (
+    assign_document,
+    change_reviewer,
+    list_incidents,
+    report_incident,
+    resolve_incident,
+)
+from backend.security import hasher
 
 
 def change(engine, active=True, birth=None, work=None, apply=True):
@@ -274,3 +282,202 @@ def test_changed_profile_preview_cannot_be_reused(env):
             apply=True,
             expected_version=preview["expectedVersion"],
         )
+
+
+def _add_fourth_reviewer(engine):
+    with engine.begin() as con:
+        identifier = uid()
+        con.execute(
+            db.users.insert().values(
+                id=identifier,
+                name="UBS 3",
+                email="ubs3@example.test",
+                password_hash=hasher.hash("Teste-sintetico-longo!"),
+                role="ubs",
+                created_at=now(),
+                privacy_version="2026-11-08",
+            )
+        )
+        con.execute(
+            db.reviewer_profiles.insert().values(
+                id=uid(),
+                user_id=identifier,
+                professional_id="QA-SINTETICO-3",
+                birth_city_code="4106902",
+                work_city_code="4106902",
+                verified_at=now(),
+                verification_ref="Evidência sintética 3",
+            )
+        )
+
+
+def test_late_impediment_suspends_confirmed_evidence_and_resolves_with_new_panel(env):
+    engine, root, app, client = env
+    family, ubs0, ubs1, ubs2 = client(), client("ubs", 0), client("ubs", 1), client("ubs", 2)
+    person = dependent(family)
+    doc = upload(family, person)
+    plan = ubs0.post(
+        f"/api/v1/dependents/{person}/dose-plans",
+        json={"vaccine": "BCG", "dose": 1, "dueDate": "2026-11-20", "note": "Planejamento inicial"},
+    ).json()["item"]
+    record = ubs0.post(
+        f"/api/v1/documents/{doc}/candidates",
+        json={"vaccine": "BCG", "dose": 1, "doseDate": "2026-01-02"},
+    ).json()["item"]
+    approve_document(client, doc)
+    approve_record(client, record["id"])
+
+    # Before late impediment: dose is validated, plan is completed, BCG pending is resolved.
+    assert family.get(f"/api/v1/dependents/{person}/vaccinations").json()["items"][0]["status"] == "validado"
+    assert family.get(f"/api/v1/dependents/{person}/dose-plans").json()["items"][0]["status"] == "concluida"
+    assert not any(
+        p["vaccine"] == "BCG" for p in family.get(f"/api/v1/dependents/{person}/pendings").json()["open"]
+    )
+
+    # Administrative report of late impediment discovered after ubs0 voted.
+    with engine.begin() as con:
+        inc = report_incident(
+            con,
+            doc,
+            "ubs0@example.test",
+            "PROC-ADM-2026-01",
+            "Vínculo familiar indireto identificado após conclusão da rodada 1.",
+        )
+        assert inc["hold"] is True and inc["incidentId"]
+        with pytest.raises(ValueError, match="já registrado|não pertence"):
+            report_incident(con, doc, "ubs0@example.test", "PROC-ADM-2026-01", "Duplicado")
+        open_list = list_incidents(con, only_open=True)
+        assert len(open_list) == 1 and open_list[0]["id"] == inc["incidentId"]
+
+    # Effects of hold: document and dose confirmations withdrawn, plan and pending reopened, ubs0 blocked.
+    held_doc = family.get(f"/api/documents/{doc}").json()["item"]
+    assert held_doc["status"] == "pendente" and held_doc["reviewHold"] is True
+    assert (
+        family.get(f"/api/v1/dependents/{person}/vaccinations").json()["items"][0]["status"] == "a_conferir"
+    )
+    assert family.get(f"/api/v1/dependents/{person}/dose-plans").json()["items"][0]["status"] == "ativa"
+    assert any(
+        p["vaccine"] == "BCG" for p in family.get(f"/api/v1/dependents/{person}/pendings").json()["open"]
+    )
+    assert ubs0.get(f"/api/documents/{doc}/file").status_code == 403
+    assert (
+        ubs1.post(
+            f"/api/documents/{doc}/decision",
+            json={"decision": "aprovado", "reviewRound": 1, "independenceConfirmed": True},
+        ).status_code
+        == 409
+    )
+    assert (
+        ubs1.post(
+            f"/api/v1/documents/{doc}/candidates",
+            json={"vaccine": "Pentavalente", "dose": 1, "doseDate": "2026-03-02"},
+        ).status_code
+        == 409
+    )
+
+    # Add 4th compatible reviewer so round 2 can form a full 3-person panel without ubs0.
+    _add_fourth_reviewer(engine)
+    ubs3 = client("ubs", 3)
+
+    with engine.begin() as con:
+        res = resolve_incident(
+            con,
+            inc["incidentId"],
+            "DESPACHO-ADM-2026-02",
+            "Confirmado impedimento de ubs0; aberta nova rodada com equipe independente.",
+        )
+        assert res["resolved"] is True and res["hold"] is False
+        assert res["newRound"] == 2 and res["assigned"] == 3 and not res["waitingForTeam"]
+        with pytest.raises(ValueError, match="já resolvida"):
+            resolve_incident(con, inc["incidentId"], "DESPACHO-ADM-2026-02", "Repetição")
+        assert list_incidents(con, only_open=True) == []
+        assert len(list_incidents(con, only_open=False)) == 1
+
+    # Immutability of incidents and resolutions tables.
+    for table, values in (
+        (db.review_incidents, {"reason": "adulterado"}),
+        (db.review_resolutions, {"note": "adulterada"}),
+    ):
+        for stmt in (update(table).values(**values), delete(table)):
+            with pytest.raises(DBAPIError), engine.begin() as con:
+                con.execute(stmt)
+
+    # Round 2 state: administration did NOT approve document or dose; prior votes preserved; ubs3 is blind to round 1 notes.
+    round2_doc = family.get(f"/api/documents/{doc}").json()["item"]
+    assert round2_doc["status"] == "pendente" and round2_doc["reviewHold"] is False
+    assert round2_doc["review"]["round"] == 2 and round2_doc["review"]["approvals"] == 0
+    history = family.get(f"/api/v1/documents/{doc}/review-history").json()["items"]
+    assert len(history) == 6 and all(h["review_round"] == 1 for h in history)
+    ubs3_audit = ubs3.get("/api/audit", params={"documentId": doc}).json()["items"]
+    assert not any(
+        a["event"] in ("rodada_anterior_preservada", "decisao_documento_suspensa_impedimento")
+        for a in ubs3_audit
+    )
+
+    # New independent panel (ubs1, ubs2, ubs3) completes round 2 review.
+    for reviewer in (ubs1, ubs2, ubs3):
+        r_doc = reviewer.post(
+            f"/api/documents/{doc}/decision",
+            json={
+                "decision": "aprovado",
+                "note": "Conferido na rodada 2.",
+                "reviewRound": 2,
+                "independenceConfirmed": True,
+            },
+        )
+        assert r_doc.status_code == 200, r_doc.text
+    for reviewer in (ubs1, ubs2, ubs3):
+        r_vac = reviewer.post(
+            f"/api/v1/vaccinations/{record['id']}/decision",
+            json={
+                "decision": "validado",
+                "note": "Dose validada na rodada 2.",
+                "reviewRound": 2,
+                "independenceConfirmed": True,
+            },
+        )
+        assert r_vac.status_code == 200, r_vac.text
+
+    assert family.get(f"/api/documents/{doc}").json()["item"]["status"] == "aprovado"
+    final_vac = family.get(f"/api/v1/dependents/{person}/vaccinations").json()["items"][0]
+    assert final_vac["status"] == "validado" and final_vac["review"]["round"] == 2
+    assert {r["name"] for r in final_vac["review"]["reviewers"]} == {"UBS 1", "UBS 2", "UBS 3"}
+    assert family.get(f"/api/v1/dependents/{person}/dose-plans").json()["items"][0]["status"] == "concluida"
+    assert plan["id"] == family.get(f"/api/v1/dependents/{person}/dose-plans").json()["items"][0]["id"]
+
+
+def test_concurrent_vote_and_late_impediment(env):
+    engine, root, app, client = env
+    family, ubs0, ubs1 = client(), client("ubs", 0), client("ubs", 1)
+    doc = upload(family, dependent(family))
+    assert (
+        ubs0.post(
+            f"/api/documents/{doc}/decision",
+            json={"decision": "aprovado", "reviewRound": 1, "independenceConfirmed": True},
+        ).status_code
+        == 200
+    )
+    barrier = Barrier(2)
+
+    def vote_ubs1():
+        barrier.wait(timeout=15)
+        return ubs1.post(
+            f"/api/documents/{doc}/decision",
+            json={"decision": "aprovado", "reviewRound": 1, "independenceConfirmed": True},
+        ).status_code
+
+    def impediment_ubs0():
+        barrier.wait(timeout=15)
+        return ubs0.post(
+            f"/api/v1/documents/{doc}/impediment",
+            json={"reason": "Impedimento posterior percebido em concorrência."},
+        ).status_code
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f_vote = pool.submit(vote_ubs1)
+        f_imp = pool.submit(impediment_ubs0)
+        assert f_vote.result(timeout=30) in (200, 409)
+        assert f_imp.result(timeout=30) == 200
+
+    item = family.get(f"/api/documents/{doc}").json()["item"]
+    assert item["reviewHold"] is True and item["status"] == "pendente"

@@ -19,8 +19,15 @@ ALIASES = {
     "42": "Pentavalente",
     "22": "Poliomielite VIP",
     "9": "Hepatite B",
+    "26": "Pneumocócica 10",
+    "39": "Rotavírus humano",
+    "41": "Meningocócica C",
     "14": "Febre amarela",
     "24": "Tríplice viral",
+    "35": "Hepatite A",
+    "47": "DTP",
+    "56": "Tetraviral",
+    "37": "Varicela",
 }
 
 

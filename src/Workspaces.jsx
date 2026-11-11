@@ -191,6 +191,7 @@ export function DocumentReview({
   const { names: vaccines } = useVaccineCatalog();
   const [current, setCurrent] = useState(document),
     [records, setRecords] = useState([]),
+    [pendings, setPendings] = useState([]),
     [job, setJob] = useState(null),
     [audit, setAudit] = useState([]),
     [priorVotes, setPriorVotes] = useState([]),
@@ -198,9 +199,10 @@ export function DocumentReview({
     [guidance, setGuidance] = useState(""),
     [independent, setIndependent] = useState(false);
   const refresh = useCallback(async () => {
-    const [d, r, p, a, h] = await Promise.all([
+    const [d, r, pend, p, a, h] = await Promise.all([
       api("/api/documents/" + document.id),
       api(`/api/v1/documents/${document.id}/extractions`),
+      api(`/api/v1/dependents/${document.dependentId}/pendings`),
       api(`/api/v1/documents/${document.id}/processing`),
       api("/api/audit?documentId=" + document.id),
       user.role === "familia"
@@ -209,10 +211,11 @@ export function DocumentReview({
     ]);
     setCurrent(d.item);
     setRecords(r.items);
+    setPendings(pend.items);
     setJob(p.item);
     setAudit(a.items);
     setPriorVotes(h.items);
-  }, [document.id, user.role]);
+  }, [document.id, document.dependentId, user.role]);
   useEffect(() => {
     Promise.resolve().then(refresh).catch(onError);
     const timer = setInterval(() => refresh().catch(onError), 8000);
@@ -340,11 +343,18 @@ export function DocumentReview({
             )}
         </div>
       )}
+      {(current.reviewHold || current.review?.onHold) && (
+        <p className="form-error" role="alert">
+          Conferência suspensa por impedimento informado após voto. O histórico
+          foi preservado e o caso aguarda análise administrativa para abertura
+          de nova rodada independente.
+        </p>
+      )}
       {current.review?.round > 1 && (
         <p className="review-state">
           Rodada {current.review.round}: a conferência foi reiniciada após uma
-          alteração de equipe. Os votos anteriores foram preservados e não
-          contam para esta rodada.
+          alteração de equipe ou análise de impedimento. Os votos anteriores
+          foram preservados e não contam para esta rodada.
         </p>
       )}
       {user.role === "ubs" && (
@@ -373,14 +383,20 @@ export function DocumentReview({
               onSubmit={async (e) => {
                 e.preventDefault();
                 const data = Object.fromEntries(new FormData(e.currentTarget));
+                let result;
                 if (
-                  await act(
-                    () =>
-                      send(`/api/v1/documents/${document.id}/impediment`, data),
-                    "Impedimento registrado. A caderneta voltará ao sorteio.",
-                  )
-                )
+                  await act(async () => {
+                    result = await send(
+                      `/api/v1/documents/${document.id}/impediment`,
+                      data,
+                    );
+                  })
+                ) {
                   onClose();
+                }
+                if (result?.hold) {
+                  setNote("");
+                }
               }}
             >
               <Field label="Motivo do impedimento">
@@ -391,6 +407,10 @@ export function DocumentReview({
                   maxLength={500}
                 />
               </Field>
+              <p className="small muted">
+                Se você já registrou voto neste caso, a conferência será
+                suspensa para análise administrativa, preservando o histórico.
+              </p>
               <button className="secondary" disabled={busy}>
                 Registrar impedimento
               </button>
@@ -429,6 +449,8 @@ export function DocumentReview({
       )}
       {user.role === "ubs" &&
         current.status === "pendente" &&
+        !current.reviewHold &&
+        !current.review?.onHold &&
         !current.review?.myVote && (
           <div className="button-row">
             <button
@@ -491,6 +513,8 @@ export function DocumentReview({
             {r.review?.myVote && <p>Seu voto está registrado.</p>}
             {user.role === "ubs" &&
               r.status === "a_conferir" &&
+              !current.reviewHold &&
+              !current.review?.onHold &&
               !r.review?.myVote && (
                 <div className="button-row">
                   <button
@@ -555,6 +579,60 @@ export function DocumentReview({
               </button>
             </fieldset>
           </form>
+        </details>
+      )}
+      <h3 className="subheading">Possíveis pendências desta pessoa</h3>
+      <p className="small muted">
+        Contexto calculado automaticamente pelas regras vigentes (sujeito à
+        conferência profissional da UBS).
+      </p>
+      {pendings.filter((p) => p.status === "aberta").length ? (
+        <div className="pending-list">
+          {pendings
+            .filter((p) => p.status === "aberta")
+            .map((p) => (
+              <article className="record-card" key={p.id}>
+                <div>
+                  <strong>
+                    {p.vaccine} • Dose {p.dose}
+                  </strong>
+                  <small>
+                    Cálculo automático • Regra {p.rule_id} ({p.rule_version})
+                  </small>
+                  <p>{p.reason}</p>
+                </div>
+                <Badge status={p.status} />
+              </article>
+            ))}
+        </div>
+      ) : (
+        <p className="muted">
+          Nenhuma pendência aberta nas regras automáticas para esta pessoa.
+        </p>
+      )}
+      {pendings.some((p) => p.status === "resolvida") && (
+        <details className="audit">
+          <summary>
+            Histórico de pendências resolvidas desta pessoa (
+            {pendings.filter((p) => p.status === "resolvida").length})
+          </summary>
+          {pendings
+            .filter((p) => p.status === "resolvida")
+            .map((p) => (
+              <article className="feedback-entry" key={p.id}>
+                <strong>
+                  {p.vaccine} • Dose {p.dose} • Resolvida após conferência UBS
+                </strong>
+                <p>
+                  <strong>Motivo anterior (resolvido):</strong>{" "}
+                  {p.historical_reason || p.reason}
+                </p>
+                <small>
+                  Regra {p.rule_id} ({p.rule_version}) •{" "}
+                  {formatDate(p.updated_at)}
+                </small>
+              </article>
+            ))}
         </details>
       )}
       {priorVotes.length > 0 && (
@@ -722,10 +800,10 @@ export function FamilyHistory({
                 <table>
                   <thead>
                     <tr>
-                      <th>VACINA / DOSE</th>
-                      <th>DATA</th>
-                      <th>ORIGEM</th>
-                      <th>SITUAÇÃO</th>
+                      <th scope="col">VACINA / DOSE</th>
+                      <th scope="col">DATA</th>
+                      <th scope="col">ORIGEM</th>
+                      <th scope="col">SITUAÇÃO</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -768,62 +846,105 @@ export function FamilyHistory({
           </Section>
           <Section
             title="Doses para conferir com a UBS"
-            description="O histórico pode estar incompleto. A UBS deve conferir antes de indicar uma vacina."
+            description="Cálculo automático por regras (sujeito à conferência profissional da UBS). Pendências resolvidas ficam separadas no histórico abaixo."
           >
-            {pendings.length ? (
+            {pendings.filter((p) => p.status === "aberta").length ? (
               <div className="pending-list">
-                {pendings.map((p) => (
-                  <article key={p.id}>
-                    <div className="section-heading">
-                      <div>
-                        <h3>
-                          {p.vaccine} • Dose {p.dose}
-                        </h3>
-                        <p>{p.reason}</p>
+                {pendings
+                  .filter((p) => p.status === "aberta")
+                  .map((p) => (
+                    <article key={p.id}>
+                      <div className="section-heading">
+                        <div>
+                          <span className="eyebrow">
+                            CÁLCULO AUTOMÁTICO • SUJEITO À CONFERÊNCIA DA UBS
+                          </span>
+                          <h3>
+                            {p.vaccine} • Dose {p.dose}
+                          </h3>
+                          <p>{p.reason}</p>
+                        </div>
+                        <Badge status={p.status} />
                       </div>
-                      <Badge status={p.status} />
-                    </div>
-                    <small className="muted">
-                      Regra {p.rule_id} • versão {p.rule_version} •{" "}
-                      {formatDate(p.updated_at)}
-                    </small>
-                    {user.role === "ubs" && (
-                      <details className="transcription">
-                        <summary>Orientar a família</summary>
-                        <form onSubmit={(e) => addGuidance(e, p)}>
-                          <fieldset disabled={busy}>
-                            <Field label="Orientação da UBS">
-                              <textarea
-                                name="text"
-                                minLength={3}
-                                maxLength={1000}
-                                rows={3}
-                                required
-                              />
-                            </Field>
-                            <label className="checkbox">
-                              <input
-                                type="checkbox"
-                                name="released"
-                                defaultChecked
-                              />
-                              <span>Liberar para a família</span>
-                            </label>
-                            <button className="secondary" type="submit">
-                              Salvar orientação
-                            </button>
-                          </fieldset>
-                        </form>
-                      </details>
-                    )}
-                  </article>
-                ))}
+                      <small className="muted">
+                        Regra {p.rule_id} • versão {p.rule_version} •{" "}
+                        {formatDate(p.updated_at)}
+                      </small>
+                      {user.role === "ubs" && (
+                        <details className="transcription">
+                          <summary>Orientar a família</summary>
+                          <form onSubmit={(e) => addGuidance(e, p)}>
+                            <fieldset disabled={busy}>
+                              <Field label="Orientação da UBS">
+                                <textarea
+                                  name="text"
+                                  minLength={3}
+                                  maxLength={1000}
+                                  rows={3}
+                                  required
+                                />
+                              </Field>
+                              <label className="checkbox">
+                                <input
+                                  type="checkbox"
+                                  name="released"
+                                  defaultChecked
+                                />
+                                <span>Liberar para a família</span>
+                              </label>
+                              <button className="secondary" type="submit">
+                                Salvar orientação
+                              </button>
+                            </fieldset>
+                          </form>
+                        </details>
+                      )}
+                    </article>
+                  ))}
               </div>
             ) : (
-              <Empty title="Nenhuma pendência nas vacinas avaliadas">
+              <Empty title="Nenhuma pendência aberta nas vacinas avaliadas">
                 Isso não comprova situação vacinal completa. A UBS deve conferir
                 as demais vacinas e condições individuais.
               </Empty>
+            )}
+            {pendings.some((p) => p.status === "resolvida") && (
+              <details className="audit">
+                <summary>
+                  Histórico de pendências resolvidas (
+                  {pendings.filter((p) => p.status === "resolvida").length})
+                </summary>
+                <p className="small muted">
+                  Pendências encerradas após confirmação profissional de dose
+                  compatível. Os motivos abaixo referem-se apenas à situação
+                  anterior à resolução.
+                </p>
+                {pendings
+                  .filter((p) => p.status === "resolvida")
+                  .map((p) => (
+                    <article className="feedback-entry" key={p.id}>
+                      <div className="section-heading">
+                        <div>
+                          <span className="eyebrow">
+                            CONFERÊNCIA PROFISSIONAL CONCLUÍDA
+                          </span>
+                          <h3>
+                            {p.vaccine} • Dose {p.dose}
+                          </h3>
+                        </div>
+                        <Badge status={p.status} />
+                      </div>
+                      <p>
+                        <strong>Motivo anterior (resolvido):</strong>{" "}
+                        {p.historical_reason || p.reason}
+                      </p>
+                      <small className="muted">
+                        Regra {p.rule_id} • versão {p.rule_version} • Resolvida
+                        em {formatDate(p.updated_at)}
+                      </small>
+                    </article>
+                  ))}
+              </details>
             )}
           </Section>
           <Section
@@ -834,12 +955,14 @@ export function FamilyHistory({
               guidance.map((g) => (
                 <article className="guidance-card" key={g.id}>
                   <span className="eyebrow">
-                    ORIENTAÇÃO UBS{!g.released && " • RASCUNHO"}
+                    ORIENTAÇÃO UBS
+                    {g.vaccine ? ` • ${g.vaccine} (DOSE ${g.dose})` : ""}
+                    {!g.released && " • RASCUNHO"}
                   </span>
                   <p>{g.text}</p>
                   <small>
-                    {formatDate(g.created_at)} • Profissional{" "}
-                    {g.author_id.slice(0, 8)}
+                    {formatDate(g.created_at)} •{" "}
+                    {g.author_name || `Profissional ${g.author_id.slice(0, 8)}`}
                   </small>
                 </article>
               ))
@@ -860,10 +983,13 @@ function ShieldScope() {
     <>
       <strong>Sobre a avaliação automática</strong>
       <p>
-        Este MVP avalia BCG, pentavalente e poliomielite VIP, segundo o recorte
-        de regras de 2026. Outras vacinas, esquemas especiais e condições
-        individuais precisam de avaliação da UBS. Registros “a conferir” não
-        contam como doses confirmadas.{" "}
+        A avaliação automática cobre o recorte infantil de rotina configurado
+        (BCG, Hepatite B, Pentavalente, Poliomielite VIP, Pneumocócica 10,
+        Rotavírus humano, Meningocócica C, Febre amarela, Tríplice viral e
+        Hepatite A) segundo as regras de 2026. Outras vacinas, esquemas
+        especiais, contraindicações e condições individuais dependem da
+        avaliação profissional da UBS. Registros “a conferir” não contam como
+        doses confirmadas.{" "}
         <a
           href="https://www.gov.br/saude/pt-br/vacinacao/calendario"
           target="_blank"

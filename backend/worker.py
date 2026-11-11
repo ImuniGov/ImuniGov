@@ -27,26 +27,50 @@ ALIASES = {
     "bcg": "BCG",
     "pentavalente": "Pentavalente",
     "penta": "Pentavalente",
+    "dtp-hb-hib": "Pentavalente",
     "poliomielite vip": "Poliomielite VIP",
+    "poliomielite inativada": "Poliomielite VIP",
     "vip": "Poliomielite VIP",
     "hepatite b": "Hepatite B",
+    "hep b": "Hepatite B",
+    "pneumococica 10": "Pneumocócica 10",
+    "pneumococica 10v": "Pneumocócica 10",
+    "pneumo 10": "Pneumocócica 10",
+    "vpc10": "Pneumocócica 10",
+    "rotavirus humano": "Rotavírus humano",
+    "rotavirus": "Rotavírus humano",
+    "vorh": "Rotavírus humano",
+    "meningococica c": "Meningocócica C",
+    "meningo c": "Meningocócica C",
+    "menc": "Meningocócica C",
     "triplice viral": "Tríplice viral",
+    "scr": "Tríplice viral",
     "febre amarela": "Febre amarela",
+    "vfa": "Febre amarela",
+    "hepatite a": "Hepatite A",
+    "hep a": "Hepatite A",
+    "tetraviral": "Tetraviral",
+    "scrv": "Tetraviral",
+    "triplice bacteriana": "DTP",
+    "dtp": "DTP",
+    "varicela": "Varicela",
 }
 
 
 def parse_candidates(text, confidence=0):
     """Only same-line vaccine + explicit dose + date; ambiguity stays for manual review."""
     candidates = []
+    ordered_aliases = sorted(ALIASES.items(), key=lambda kv: -len(kv[0]))
     for line in text.splitlines():
         plain = "".join(c for c in unicodedata.normalize("NFD", line.lower()) if not unicodedata.combining(c))
         vaccine = next(
-            (value for key, value in ALIASES.items() if re.search(r"\b" + re.escape(key) + r"\b", plain)),
+            (value for key, value in ordered_aliases if re.search(r"\b" + re.escape(key) + r"\b", plain)),
             None,
         )
-        dose = re.search(r"\b([1-9])\s*(?:[aªº°.]\s*)?dose\b|\bdose\s*([1-9])\b", plain)
+        dose = re.search(r"\b([1-9])\s*(?:[aªº°.]\s*)?dose\b|\bdose\s*([1-9])\b|\bd([1-9])\b", plain)
+        single = re.search(r"\bdose\s+unica\b|\bdu\b", plain)
         day = re.search(r"\b(\d{2})[/-](\d{2})[/-](\d{4})\b", plain)
-        if vaccine and (dose or vaccine == "BCG") and day:
+        if vaccine and (dose or single or vaccine == "BCG") and day:
             try:
                 given = date(int(day[3]), int(day[2]), int(day[1]))
                 if given > clock.today() or given.year < 1900:
@@ -55,7 +79,7 @@ def parse_candidates(text, confidence=0):
                 continue
             item = {
                 "vaccine": vaccine,
-                "dose": int(dose[1] or dose[2]) if dose else 1,
+                "dose": int(dose[1] or dose[2] or dose[3]) if dose else 1,
                 "dose_date": given.isoformat(),
                 "confidence": confidence,
             }

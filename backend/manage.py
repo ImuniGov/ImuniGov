@@ -152,10 +152,35 @@ def main():
     change.add_argument("--reason", required=True)
     change.add_argument("--expected-version")
     change.add_argument("--apply", action="store_true")
+    incidents = sub.add_parser("review-incidents")
+    incidents.add_argument("--all", action="store_true")
+    report_inc = sub.add_parser("report-incident")
+    report_inc.add_argument("--document", required=True)
+    report_inc.add_argument("--reviewer-email", required=True)
+    report_inc.add_argument("--administrative-ref", required=True)
+    report_inc.add_argument("--reason", required=True)
+    resolve_inc = sub.add_parser("resolve-incident")
+    resolve_inc.add_argument("--incident-id", required=True)
+    resolve_inc.add_argument("--administrative-ref", required=True)
+    resolve_inc.add_argument("--note", required=True)
     sub.add_parser("privacy-requests")
     answer = sub.add_parser("answer-privacy")
     answer.add_argument("--id", required=True)
     answer.add_argument("--response", required=True)
+    rep = sub.add_parser("verify-representation")
+    rep.add_argument("--dependent", required=True)
+    rep.add_argument("--verification-ref", required=True)
+    rep.add_argument("--note", required=True)
+    del_req = sub.add_parser("execute-deletion")
+    del_req.add_argument("--request-id", required=True)
+    del_req.add_argument("--administrative-ref", required=True)
+    del_req.add_argument("--note", required=True)
+    sec_inc = sub.add_parser("security-incident")
+    sec_inc.add_argument("--severity", choices=["baixa", "media", "alta", "critica"], required=True)
+    sec_inc.add_argument("--administrative-ref", required=True)
+    sec_inc.add_argument("--summary", required=True)
+    sec_inc.add_argument("--scope", required=True)
+    sec_inc.add_argument("--mitigation", required=True)
     rule_import = sub.add_parser("activate-rules")
     rule_import.add_argument("file")
     user = sub.add_parser("create-user")
@@ -226,6 +251,34 @@ def main():
                 expected_version=args.expected_version,
             )
         print(json.dumps(result, ensure_ascii=False, indent=2))
+    elif args.action == "review-incidents":
+        from .reviews import list_incidents
+
+        with db.make_engine().connect() as con:
+            print(json.dumps(list_incidents(con, only_open=not args.all), ensure_ascii=False, indent=2))
+    elif args.action == "report-incident":
+        from .reviews import report_incident
+
+        with db.make_engine().begin() as con:
+            result = report_incident(
+                con,
+                args.document,
+                args.reviewer_email,
+                args.administrative_ref,
+                args.reason,
+            )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    elif args.action == "resolve-incident":
+        from .reviews import resolve_incident
+
+        with db.make_engine().begin() as con:
+            result = resolve_incident(
+                con,
+                args.incident_id,
+                args.administrative_ref,
+                args.note,
+            )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     elif args.action == "privacy-requests":
         with db.make_engine().connect() as con:
             print(
@@ -258,6 +311,37 @@ def main():
             )
             event(con, None, "privacy_request", args.id, "resposta_administrativa", args.response)
         print("Resposta registrada. A execução de correção ou eliminação deve ser verificada separadamente.")
+    elif args.action == "verify-representation":
+        from .privacy import verify_representation
+
+        with db.make_engine().begin() as con:
+            result = verify_representation(con, args.dependent, args.verification_ref, args.note)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    elif args.action == "execute-deletion":
+        from .privacy import execute_privacy_deletion
+
+        with db.make_engine().begin() as con:
+            result = execute_privacy_deletion(
+                con,
+                os.environ.get("IMUNIGUI_DATA_DIR", "data"),
+                args.request_id,
+                args.administrative_ref,
+                args.note,
+            )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    elif args.action == "security-incident":
+        from .privacy import record_security_incident
+
+        with db.make_engine().begin() as con:
+            result = record_security_incident(
+                con,
+                args.severity,
+                args.administrative_ref,
+                args.summary,
+                args.scope,
+                args.mitigation,
+            )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     elif args.action == "activate-rules":
         from .schemas import RuleSet
 

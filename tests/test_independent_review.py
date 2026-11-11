@@ -85,17 +85,19 @@ def test_votes_are_blind_and_impediment_stops_access(env):
     audit = second.get("/api/audit", params={"documentId": doc}).json()["items"]
     assert not any(i["details"] == "Minha avaliação independente." for i in audit)
     assert (
-        ubs.post(f"/api/v1/documents/{doc}/impediment", json={"reason": "Conheço a família."}).status_code
-        == 409
-    )
-    assert (
         second.post(f"/api/v1/documents/{doc}/impediment", json={"reason": "Conheço a família."}).status_code
         == 200
     )
     assert second.get(f"/api/documents/{doc}/file").status_code == 403
     assert family.get(f"/api/documents/{doc}").json()["item"]["review"]["waitingForTeam"]
+    late = ubs.post(f"/api/v1/documents/{doc}/impediment", json={"reason": "Conflito percebido após votar."})
+    assert late.status_code == 200 and late.json()["hold"] is True and late.json()["incidentId"]
+    assert ubs.get(f"/api/documents/{doc}/file").status_code == 403
+    held = family.get(f"/api/documents/{doc}").json()["item"]
+    assert held["reviewHold"] is True and held["review"]["onHold"] is True
     with engine.connect() as con:
         assert len(con.execute(select(db.review_votes)).all()) == 1
+        assert len(con.execute(select(db.review_incidents)).all()) == 1
 
 
 def test_votes_and_acceptances_cannot_be_rewritten(env):

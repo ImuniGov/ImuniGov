@@ -1,10 +1,17 @@
 export const vaccines = [
   "BCG",
+  "Hepatite B",
   "Pentavalente",
   "Poliomielite VIP",
-  "Hepatite B",
-  "Tríplice viral",
+  "Pneumocócica 10",
+  "Rotavírus humano",
+  "Meningocócica C",
   "Febre amarela",
+  "Tríplice viral",
+  "Hepatite A",
+  "Tetraviral",
+  "DTP",
+  "Varicela",
   "Outro registro",
 ];
 export const labels = {

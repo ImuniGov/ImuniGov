@@ -8,11 +8,21 @@ import os
 import tarfile
 from pathlib import Path
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import delete, func, insert, inspect, select, text
 
 from . import db
 
 EXCLUDED = {"sessions", "auth_attempts", "push_subscriptions"}
+SCHEMA_VERSION = "012"
+COMPATIBLE_SCHEMAS = {"001", SCHEMA_VERSION}
+INITIAL_GATE = [{"id": "roster", "revision": 1}]
+
+
+def _check_revision(con):
+    if "alembic_version" in inspect(con).get_table_names():
+        revisions = list(con.scalars(text("SELECT version_num FROM alembic_version")))
+        if revisions != [SCHEMA_VERSION]:
+            raise ValueError("Versão de migração do banco incompatível.")
 
 
 def backup(engine, data_dir, destination):
@@ -23,11 +33,12 @@ def backup(engine, data_dir, destination):
         if engine.dialect.name == "postgresql":
             con = con.execution_options(isolation_level="REPEATABLE READ")
         with con.begin():
+            _check_revision(con)
             for table in db.metadata.sorted_tables:
                 if table.name not in EXCLUDED:
                     rows[table.name] = [dict(r) for r in con.execute(select(table)).mappings()]
             with tarfile.open(destination, "x:gz") as archive:
-                blob = json.dumps({"schema": "001", "tables": rows}, ensure_ascii=False).encode()
+                blob = json.dumps({"schema": SCHEMA_VERSION, "tables": rows}, ensure_ascii=False).encode()
                 info = tarfile.TarInfo("database.json")
                 info.size = len(blob)
                 archive.addfile(info, io.BytesIO(blob))
@@ -35,6 +46,7 @@ def backup(engine, data_dir, destination):
                     path = (data_dir / "uploads" / doc["stored_name"]).resolve()
                     if (
                         path.parent != data_dir / "uploads"
+                        or not path.is_file()
                         or hashlib.sha256(path.read_bytes()).hexdigest() != doc["sha256"]
                     ):
                         raise ValueError("Hash divergente: backup não pode ser considerado válido.")
@@ -47,18 +59,40 @@ def restore(engine, data_dir, source):
     copied = []
     try:
         with tarfile.open(source, "r:gz") as archive, engine.begin() as con:
+            _check_revision(con)
             handle = archive.extractfile("database.json")
             manifest = json.load(handle)
-            if manifest["schema"] != "001" or set(manifest["tables"]) != set(db.metadata.tables) - EXCLUDED:
+            tables = manifest.get("tables")
+            if (
+                manifest.get("schema") not in COMPATIBLE_SCHEMAS
+                or not isinstance(tables, dict)
+                or set(tables) != set(db.metadata.tables) - EXCLUDED
+            ):
                 raise ValueError("Versão ou tabelas incompatíveis.")
             for table in db.metadata.sorted_tables:
-                if con.scalar(select(func.count()).select_from(table)):
+                if table.name in EXCLUDED:
+                    continue
+                valid_cols = {c.name for c in table.columns}
+                for row in tables.get(table.name, []):
+                    if not isinstance(row, dict) or not set(row).issubset(valid_cols):
+                        raise ValueError("Versão ou tabelas incompatíveis.")
+            for table in db.metadata.sorted_tables:
+                if table.name == "review_gate":
+                    gate = [dict(r) for r in con.execute(select(db.review_gate)).mappings()]
+                    if gate not in ([], INITIAL_GATE):
+                        raise ValueError(
+                            "Restauração exige banco novo e vazio; nenhum dado será sobrescrito."
+                        )
+                elif con.scalar(select(func.count()).select_from(table)):
                     raise ValueError("Restauração exige banco novo e vazio; nenhum dado será sobrescrito.")
-            for doc in manifest["tables"]["documents"]:
+            for doc in tables["documents"]:
                 path = (data_dir / "uploads" / doc["stored_name"]).resolve()
                 if path.parent != data_dir / "uploads" or path.exists():
                     raise ValueError("Caminho inválido ou arquivo já existente no destino.")
-                member = archive.getmember("uploads/" + doc["stored_name"])
+                try:
+                    member = archive.getmember("uploads/" + doc["stored_name"])
+                except KeyError as exc:
+                    raise ValueError("Arquivo inválido no backup.") from exc
                 if not member.isfile() or member.size > 10 * 1024 * 1024:
                     raise ValueError("Arquivo inválido no backup.")
                 blob = archive.extractfile(member).read()
@@ -67,8 +101,11 @@ def restore(engine, data_dir, source):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(blob)
                 copied.append(path)
+            con.execute(delete(db.review_gate))
             for table in db.metadata.sorted_tables:
-                rows = manifest["tables"].get(table.name, [])
+                rows = tables.get(table.name, [])
+                if table.name == "review_gate" and not rows:
+                    rows = INITIAL_GATE
                 if rows:
                     con.execute(insert(table), rows)
     except Exception:

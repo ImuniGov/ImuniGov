@@ -56,6 +56,7 @@ def public_document(row, dependent, con, user):
         "family_note": "familyNote",
         "review_note": "reviewNote",
         "review_guidance": "reviewGuidance",
+        "review_hold": "reviewHold",
         "created_at": "createdAt",
         "reviewed_at": "reviewedAt",
     }

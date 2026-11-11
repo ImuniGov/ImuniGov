@@ -1,29 +1,30 @@
 # Guia de continuidade para IA
 
-> **Estado vigente da auditoria:** meta de implementação pausada pelo usuário. Não retomar desenvolvimento automaticamente. Lista completa em [docs/STATUS_ENTREGA.md](docs/STATUS_ENTREGA.md): 29 issues concluídas pelo respectivo escopo e 20 abertas, incluindo #49 (restauração falha em banco migrado). K18.2 tem somente rascunho de esquema/migração 012, sem fluxo implementado. As prioridades abaixo são para quando houver retomada. Docker local está entregue; HTTPS público, aparelhos reais, operação de privacidade, cobertura clínica ampliada e acessibilidade/usabilidade ainda precisam de validação. Estados e labels das 49 issues conferidos por nova leitura; CI 92f75f9 aprovada nos três jobs (execução 42558280959). Registro em KANBAN.md.
+> **Estado vigente (2026-11-11):** desenvolvimento retomado por solicitação explícita do usuário na branch `homologacao`. Todas as entregas de código, testes e documentação listadas em [docs/STATUS_ENTREGA.md](docs/STATUS_ENTREGA.md) (`K02`, `K02.1`, `K06`, `K08`, `K09.1`, `K18.2`, `K19/K07`, `K05/K20`, `K21`) foram concluídas ou colocadas em revisão final com evidência local (51 testes Python/SQLite aprovados e 3 OCR pulados no Windows sem motores locais, 4 testes PWA aprovados, lint e build Vite aprovados). Registro completo em [KANBAN.md](KANBAN.md).
 
-Atualizado em 2026-11-08 (America/Cuiaba). Ler AGENTS.md, roadmap.md e KANBAN.md antes de trabalhar. A branch de entrega é `homologacao`; `main` e `teste` são referências históricas. O diagnóstico inicial está nos commits anteriores, especialmente f6dd262.
+Atualizado em 2026-11-11 (America/Cuiaba). Ler AGENTS.md, roadmap.md e KANBAN.md antes de trabalhar. A branch de entrega é `homologacao`; `main` e `teste` são referências históricas. O diagnóstico inicial está nos commits anteriores, especialmente f6dd262.
 
 ## Estado técnico
 
 - React 19/Vite, JSX, CSS responsivo, PWA com cache apenas público. Não inventar fontes TypeScript existentes.
-- FastAPI/Pydantic, SQLAlchemy Core, Alembic, PostgreSQL no Docker e SQLite em testes locais.
+- FastAPI/Pydantic, SQLAlchemy Core, Alembic (revisão `012`), PostgreSQL no Docker e SQLite em testes locais. Diagrama ER em `docs/MODELAGEM_DADOS.md`.
 - Worker SQL persistente, OCR Tesseract por/eng e Poppler. Falha legível permite transcrição manual.
 - Sessão opaca com cookie HttpOnly/SameSite, Argon2, CSRF, rate limit, autorização no servidor. Staff só por administração.
 - Documento `pendente/aprovado/rejeitado`; dose `a_conferir/validado/recusado`. Não confluir estados.
 - Três revisores sorteados com todas as comparações nascimento/trabalho de município/UF/RM/RIDE/AU, usando catálogo IBGE versionado. Perfis exigem verificação administrativa. Geografia não prova desconhecimento pessoal; declaração e impedimento complementam o fluxo.
-- Votos, auditoria e aceites são rastreáveis; votos e aceites não podem ser fabricados. Legado de revisão simples é reaberto na migração 007, preservando decisões na auditoria.
+- Impedimento descoberto após voto (`K18.2`): `POST /api/v1/documents/{id}/impediment` ou `backend.manage report-incident` abre ocorrência imutável em `review_incidents`, suspende a caderneta (`documents.review_hold = true`), reverte confirmações derivadas da evidência contaminada para `a_conferir`, recalcula pendências/agenda e aguarda `backend.manage resolve-incident`, que registra `review_resolutions` e abre nova rodada independente sem aprovar doses administrativamente.
+- Votos, auditoria, aceites, mudanças de perfil, incidentes e resoluções de revisão são imutáveis (triggers append-only).
 - RNDS público fornece terminologia de vacinas, não recomendação individual. Worker consulta diariamente; falha preserva última cópia. Regras clínicas não são ativadas por download automático.
-- Rotina automática limitada a BCG/Pentavalente/VIP. Datas individualizadas UBS cobrem outras vacinas. Não afirmar cobertura integral do PNI ou prontuário oficial RNDS.
+- Rotina automática versionada em `backend/rules/routine-2026.json` (`PNI-2026-INFANTIL-ROTINA-v2`, 23 regras cobrindo BCG, Hepatite B, Pentavalente, Poliomielite VIP, Pneumocócica 10, Rotavírus humano com limite etário superior estrito, Meningocócica C, Febre amarela, Tríplice viral e Hepatite A). Datas individualizadas UBS (`DosePlan`) cobrem outras vacinas e esquemas especiais.
+- Operação LGPD (`backend/manage.py`): `verify-representation`, `execute-deletion` (expurgo de textos OCR, candidatos não votados e arquivos sem vínculo; retenção sob bloqueio de registros clínicos auditados conforme art. 16 da LGPD) e `security-incident`.
 
-## Próxima ordem de trabalho
+## Próxima ordem de trabalho (validações externas/humanas)
 
-1. CI mais recente do código d4e1757 passou em frontend, backend e Docker/PostgreSQL (execução 42555673454), com 49 testes Docker. Não repetir testes aprovados sem mudança ou falha; verificar os checks dos próximos commits funcionais.
-2. Fechar lacunas de K18/#45: alteração/suspensão e reatribuição por rodadas implementadas, com prévia/versionamento, votos preservados e concorrência testada. Três contas fictícias homologadas no navegador (arquivo e dose), inclusive preservação de voto anterior após nova rodada. Continuar K18.2: impedimento posterior ao voto por caso, sem alterar artificialmente perfil; manter procedimento humano de verificação documental.
-3. Fechar K20/#47: aceite de nova versão e suspensão por revogação implementados; execução monitorada de pedidos de eliminação, comprovação de representação, canal e retenção reais. A revogação suspende o processamento voluntário, novos acessos da equipe e avisos externos; resultados OCR anteriores à interrupção são descartados mesmo se houver novo aceite durante a leitura. Consulta/exportação própria continua disponível. Eliminação e retenção ainda exigem procedimento administrativo.
-4. Revisão clínica das regras, ampliação explícita da cobertura e testes de vacinas/condições especiais. Não usar dados agregados de doses aplicadas como calendário.
-5. Continuar revisão acessível com usuários e aparelhos reais. Ler docs/DESIGN_UX.md; preservar linguagem simples, precisão clínica, padrões e hierarquia funcional.
-6. Operação: backup/restauração PostgreSQL+arquivos, implantação HTTPS quando houver hospedagem, teste de push real opt-in. Não publicar ou contratar serviço não solicitado.
+1. Verificar execução da CI remota (GitHub Actions) com Docker/PostgreSQL e `REQUIRE_OCR=1` após push na branch `homologacao`.
+2. Quando houver ambiente HTTPS público, validar instalação PWA, câmera, envio de foto/PDF, navegação offline e entrega real de Web Push em aparelhos físicos Android e iPhone (`#1/#40/#41/#43/#44`).
+3. Confirmar institucionalmente a recepção de mensagens na caixa `example@unemat.bbr` informada pelo usuário (`#47`), sem alterar o endereço silenciosamente.
+4. Executar verificação documental presencial de profissionais (`#45/#47`), revisão clínica formal das regras (`#46`) e testes moderados de usabilidade/acessibilidade com cidadãos, equipe UBS e ACS (`#48`).
+5. Sincronizar colunas do GitHub Projects quando houver token com escopo `read:project`/`project`.
 
 ## Verificação
 

@@ -166,11 +166,12 @@ def test_full_review_pending_guidance_outreach_notification(env):
         con.execute(db.rules.update().values(rules=[r for r in active["rules"] if r["vaccine"] == "BCG"]))
     person = dependent(family)
     doc = upload(family, person)
-    pending = next(
-        p
-        for p in family.get(f"/api/v1/dependents/{person}/pendings").json()["items"]
-        if p["vaccine"] == "BCG"
-    )
+    pend_resp = family.get(f"/api/v1/dependents/{person}/pendings").json()
+    assert len(pend_resp["open"]) == 1 and pend_resp["resolved"] == []
+    pending = next(p for p in pend_resp["items"] if p["vaccine"] == "BCG")
+    assert pending["evaluation_type"] == "calculo_automatico_sujeito_a_conferencia_ubs"
+    assert pending["historical_reason"] is None
+    assert ubs.get(f"/api/v1/dependents/{person}/pendings").json()["open"][0]["id"] == pending["id"]
     cases = acs.get("/api/v1/acs/cases").json()["items"]
     assert any(c["id"] == person for c in cases)
     assert all("vaccine" not in c and "fileUrl" not in c and "birth_date" not in c for c in cases)
@@ -187,14 +188,15 @@ def test_full_review_pending_guidance_outreach_notification(env):
         == 201
     )
     for released in (False, True):
-        assert (
-            ubs.post(
-                f"/api/v1/pendings/{pending['id']}/guidance",
-                json={"text": "Orientação sintética da equipe.", "released": released},
-            ).status_code
-            == 201
+        g_resp = ubs.post(
+            f"/api/v1/pendings/{pending['id']}/guidance",
+            json={"text": "Orientação sintética da equipe.", "released": released},
         )
-    assert len(family.get(f"/api/v1/dependents/{person}/guidance").json()["items"]) == 1
+        assert g_resp.status_code == 201
+        assert g_resp.json()["item"]["author_name"] == "UBS 0"
+    guidances = family.get(f"/api/v1/dependents/{person}/guidance").json()["items"]
+    assert len(guidances) == 1
+    assert guidances[0]["author_name"] == "UBS 0" and guidances[0]["vaccine"] == "BCG"
     record = ubs.post(
         f"/api/v1/documents/{doc}/candidates", json={"vaccine": "BCG", "dose": 1, "doseDate": "2026-01-02"}
     ).json()["item"]
@@ -213,6 +215,11 @@ def test_full_review_pending_guidance_outreach_notification(env):
     )
     approve_document(client, doc)
     approve_record(client, record["id"])
+    after_pend = family.get(f"/api/v1/dependents/{person}/pendings").json()
+    assert after_pend["open"] == [] and len(after_pend["resolved"]) == 1
+    assert after_pend["resolved"][0]["historical_reason"].startswith(pending["reason"])
+    assert after_pend["resolved"][0]["reason"].startswith("Motivo anterior (resolvido):")
+    assert after_pend["resolved"][0]["evaluation_type"] == "conferida_e_resolvida_pela_ubs"
     assert all(c["id"] != person for c in acs.get("/api/v1/acs/cases").json()["items"])
     assert len(acs.get(path).json()["items"]) == 1  # History survives resolution.
     notes = family.get("/api/v1/notifications").json()["items"]
@@ -259,6 +266,56 @@ def test_parser_does_not_invent_dates_or_doses():
     assert parse_candidates("Penta 12/01/2026") == []
     assert parse_candidates("Penta dose 1 31/02/2026") == []
     assert parse_candidates("VIP dose 2 01/06/2026")[0]["vaccine"] == "Poliomielite VIP"
+    varied = "\n".join(
+        [
+            "Hepatite B dose unica 02/01/2026",
+            "VPC10 1ª dose 05/03/2026",
+            "Rotavírus D2 06/05/2026",
+            "Meningo C dose 1 05/04/2026",
+            "Febre amarela dose 1 05/10/2026",
+            "Tríplice viral D1 15/10/2026",
+            "Hepatite A DU 20/10/2026",
+        ]
+    )
+    parsed = [(c["vaccine"], c["dose"], c["dose_date"]) for c in parse_candidates(varied)]
+    assert parsed == [
+        ("Hepatite B", 1, "2026-01-02"),
+        ("Pneumocócica 10", 1, "2026-03-05"),
+        ("Rotavírus humano", 2, "2026-05-06"),
+        ("Meningocócica C", 1, "2026-04-05"),
+        ("Febre amarela", 1, "2026-10-05"),
+        ("Tríplice viral", 1, "2026-10-15"),
+        ("Hepatite A", 1, "2026-10-20"),
+    ]
+
+
+def test_expanded_pni_rules_age_windows_and_rotavirus_upper_limit(env):
+    engine, root, app, client = env
+    family = client()
+    cov = family.get("/api/v1/family/schedule").json()["coverage"]
+    assert cov["version"] == "PNI-2026-INFANTIL-ROTINA-v2"
+    assert {
+        "BCG",
+        "Hepatite B",
+        "Pentavalente",
+        "Poliomielite VIP",
+        "Pneumocócica 10",
+        "Rotavírus humano",
+        "Meningocócica C",
+        "Febre amarela",
+        "Tríplice viral",
+        "Hepatite A",
+    }.issubset(set(cov["vaccines"]))
+    with engine.connect() as con:
+        active = dict(con.execute(select(db.rules).where(db.rules.c.active.is_(True))).mappings().one())
+    # At 3 months of age (born 2026-08-01, today 2026-11-08): Rotavirus dose 1 is due, Hepatite B birth window (<1m) has passed, MenC-1 is due.
+    found_3m = {r["id"] for r in evaluate("2026-08-01", [], active, date(2026, 11, 8))}
+    assert "vorh-1" in found_3m and "menc-1" in found_3m and "vpc10-1" in found_3m
+    assert "hepb-1" not in found_3m
+    # At 9 months of age (born 2026-02-01, today 2026-11-08): Rotavirus dose 1 and 2 upper limits (4m and 8m) have expired; Febre amarela (vfa-1) is due.
+    found_9m = {r["id"] for r in evaluate("2026-02-01", [], active, date(2026, 11, 8))}
+    assert "vorh-1" not in found_9m and "vorh-2" not in found_9m
+    assert "vfa-1" in found_9m and "penta-3" in found_9m
 
 
 def test_rule_boundaries_and_candidates():

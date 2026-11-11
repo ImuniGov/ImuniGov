@@ -42,6 +42,7 @@ def env(tmp_path, monkeypatch):
             importlib.import_module("backend.migrations.versions.002_audit_immutable").upgrade()
             importlib.import_module("backend.migrations.versions.008_immutable_votes").upgrade()
             importlib.import_module("backend.migrations.versions.011_review_rounds").install_history_guard()
+            importlib.import_module("backend.migrations.versions.012_late_impediments").install_guards()
             if con.dialect.name == "postgresql":
                 con.exec_driver_sql(
                     "CREATE TRIGGER acceptance_append_only BEFORE UPDATE OR DELETE ON privacy_acceptances FOR EACH ROW EXECUTE FUNCTION deny_audit_mutation()"

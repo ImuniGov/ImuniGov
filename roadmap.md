@@ -1,8 +1,8 @@
 # Roadmap do ImuniGuia
 
-> **Estado vigente da auditoria:** meta de implementação pausada pelo usuário. Não retomar desenvolvimento automaticamente. Lista completa em [docs/STATUS_ENTREGA.md](docs/STATUS_ENTREGA.md): 29 issues concluídas pelo respectivo escopo e 20 abertas, incluindo #49 (restauração falha em banco migrado). K18.2 tem somente rascunho de esquema/migração 012, sem fluxo implementado. As prioridades abaixo são para quando houver retomada. Docker local está entregue; HTTPS público, aparelhos reais, operação de privacidade, cobertura clínica ampliada e acessibilidade/usabilidade ainda precisam de validação. Estados e labels das 49 issues conferidos por nova leitura; CI 92f75f9 aprovada nos três jobs (execução 42558280959). Registro em KANBAN.md.
+> **Estado vigente (2026-11-11):** desenvolvimento retomado por solicitação explícita do usuário na branch `homologacao`. Todas as pendências técnicas de código, testes e documentação listadas em [docs/STATUS_ENTREGA.md](docs/STATUS_ENTREGA.md) (`K02`, `K02.1`, `K06`, `K08`, `K09.1`, `K18.2`, `K19/K07`, `K05/K20`, `K21`) foram implementadas e verificadas localmente (51 testes Python/SQLite aprovados e 3 OCR pulados no Windows sem motores locais, 4 testes PWA aprovados, lint e build aprovados). Restam validações externas/humanas que dependem de ambiente e equipe real: ensaio em aparelhos físicos Android/iPhone com HTTPS público (`#1/#40/#41/#43/#44`), confirmação institucional da caixa postal `example@unemat.bbr` (`#47`), homologação clínica/humana com profissionais e cidadãos (`#45/#46/#48`) e escopo `project` no token do GitHub Projects.
 
-Atualizado: 2026-11-08 (America/Cuiaba). Entrega em `homologacao`. O usuário escolheu execução Docker; hospedagem pública ainda não foi definida. O pedido atual inclui revisão completa de linguagem e experiência.
+Atualizado: 2026-11-11 (America/Cuiaba). Entrega em `homologacao`. O usuário escolheu execução Docker; hospedagem pública ainda não foi definida.
 
 ## Base e resultado atual
 
@@ -11,15 +11,15 @@ Atualizado: 2026-11-08 (America/Cuiaba). Entrega em `homologacao`. O usuário es
 | Marco | Implementado | Aceite restante |
 | --- | --- | --- |
 | M0 — diagnóstico (#23, #25, #42) | Roadmap, kanban, guia e AGENTS.md | Manter documentação e issues sincronizadas. |
-| M1 — base e dados (#19, #23) | React/FastAPI, PostgreSQL/Alembic, importação legada e hashes | Diagrama #19 e correção/ensaio de restauração #49 (PostgreSQL+arquivos). |
-| M2 — acesso e família (#2–#4, #20–#22) | Conta de família, sessão, perfis, pessoas, exportação, privacidade | Reaceite implementado; faltam representação comprovada e operação de eliminação/retenção. |
-| M3 — cadernetas (#1, #13, #14, #42) | Foto/PDF, prévia, OCR, arquivo privado, revisão e auditoria | Três contas e rodadas validadas; falta contexto de pendências na revisão e aparelhos reais. |
-| M4 — regras e registros (#5–#10, #27–#35) | Leitura assistida, candidatos, histórico, motor versionado, pendências | Revisão clínica e ampliar cobertura além das três vacinas de rotina. |
-| M5 — UBS (#12–#15) | Decisões separadas por arquivo/dose, motivos, providências, orientações e datas | Nome do profissional nas orientações, contexto de pendências na conferência e aceite com equipe real. |
+| M1 — base e dados (#19, #23, #49) | React/FastAPI, PostgreSQL/Alembic, DER em `docs/MODELAGEM_DADOS.md`, backup/restauração compatível com `review_gate` e esquema `012` | Ensaio operacional em banco PostgreSQL de produção quando houver hospedagem. |
+| M2 — acesso e família (#2–#4, #20–#22, #47) | Conta de família, sessão, perfis, pessoas, exportação, reaceite, `verify-representation`, `execute-deletion` (art. 16 LGPD) e `security-incident` | Confirmar funcionamento real da caixa `example@unemat.bbr` e operação humana de atendimento. |
+| M3 — cadernetas (#1, #13, #14, #42) | Foto/PDF, prévia, OCR, arquivo privado, revisão com contexto de pendências (#13) e auditoria | Validar envio/câmera em aparelhos Android e iPhone reais (#1/#40/#41/#43). |
+| M4 — regras e registros (#5–#10, #27–#35, #46) | Leitura assistida ampliada (10 vacinas PNI e sinônimos), histórico, motor versionado `PNI-2026-INFANTIL-ROTINA-v2` (23 regras), separação de pendências abertas e histórico resolvido (#8/#10/#28) | Homologação clínica presencial e amostras reais autorizadas. |
+| M5 — UBS (#12–#15, #45) | Decisões separadas por arquivo/dose, motivos, providências, orientações com nome do profissional (#15), datas e fluxo completo de impedimento pós-voto (`K18.2` / #45) | Verificação documental humana do quadro de profissionais. |
 | M6 — ACS (#16–#18) | Busca ativa por pessoa, prioridade, ações e histórico | Teste de usabilidade com agentes e equipe responsável. |
-| M7 — acompanhamento (#11, #43, #44) | Agenda familiar, avisos, push opt-in, mobile/PWA | Aparelhos reais, HTTPS e entrega push externa. |
-| M8 — qualidade e operação (#24–#26) | Testes automatizados, Docker, CI e guias operacionais | CI d4e1757 aprovada; falta correção de restauração e validação operacional; hospedagem quando definida. |
-| M9 — revisão independente e experiência (#45–#48) | Trio sorteado, geografia cruzada, RNDS público, termos, retorno à família e UI revisada | Pendências detalhadas abaixo e em KANBAN.md. |
+| M7 — acompanhamento (#11, #43, #44) | Agenda familiar, avisos, push opt-in, mobile/PWA | Aparelhos reais, HTTPS externo e entrega push externa. |
+| M8 — qualidade e operação (#24–#26, #49) | Testes automatizados (51 SQLite + 4 PWA locais; 3 OCR exigem Docker/CI), Docker, CI e guias operacionais | Hospedagem HTTPS pública quando definida. |
+| M9 — revisão independente e experiência (#45–#48) | Trio sorteado, impedimento pós-voto (`K18.2`), RNDS público, termos/execução LGPD, retorno à família e UI revisada com semântica ARIA | Testes moderados com cidadãos/UBS/ACS em aparelhos reais. |
 
 ## Prioridades antes de dados reais
 

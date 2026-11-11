@@ -328,6 +328,7 @@ export default function App() {
               <button
                 className="icon-button mobile-menu"
                 aria-label="Abrir navegação"
+                aria-expanded={menu}
                 onClick={() => setMenu(!menu)}
               >
                 <Menu size={22} />
@@ -640,7 +641,12 @@ export default function App() {
                         </span>
                         <h3>{p.name}</h3>
                         <p>Nascimento: {formatDate(p.birthDate)}</p>
-                        <small>{p.document_count} arquivo(s) enviado(s)</small>
+                        <small>
+                          {p.document_count} arquivo(s) enviado(s) •{" "}
+                          {p.representationVerified
+                            ? "Representação verificada documentalmente"
+                            : "Representação declarada"}
+                        </small>
                         <div className="button-row">
                           <button
                             className="secondary"
@@ -711,11 +717,11 @@ export default function App() {
                     <table>
                       <thead>
                         <tr>
-                          <th>ARQUIVO / PESSOA</th>
-                          <th>REGISTRO INFORMADO</th>
-                          <th>RECEBIDO</th>
-                          <th>SITUAÇÃO</th>
-                          <th />
+                          <th scope="col">ARQUIVO / PESSOA</th>
+                          <th scope="col">REGISTRO INFORMADO</th>
+                          <th scope="col">RECEBIDO</th>
+                          <th scope="col">SITUAÇÃO</th>
+                          <th scope="col">AÇÕES</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -958,6 +964,7 @@ export default function App() {
           <div
             className={`toast ${toast.error ? "error" : ""}`}
             role={toast.error ? "alert" : "status"}
+            aria-live={toast.error ? "assertive" : "polite"}
           >
             {toast.text}
             <button onClick={() => setToast(null)} aria-label="Fechar aviso">
