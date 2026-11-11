@@ -1233,7 +1233,13 @@ td small {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 23px;
+  position: sticky;
+  top: -27px;
+  margin: -27px -30px 23px;
+  padding: 18px 30px;
+  background: white;
+  border-bottom: 1px solid var(--line);
+  z-index: 3;
 }
 .modal-title h2 {
   font-size: 20px;
@@ -2493,12 +2499,19 @@ summary {
   .stat-card:nth-child(2n) {
     border-right: 0;
   }
-  .bottom-nav button {
+  .bottom-nav button,
+  .mobile-tabs button {
     min-height: 48px;
     font-size: 12px;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
   }
   .feedback-list {
     padding: 0 18px 16px;
+  }
+  .guidance-card {
+    margin: 0 18px 16px;
   }
   .table-wrap {
     max-width: 100%;
@@ -2513,6 +2526,11 @@ summary {
   }
   .modal {
     max-width: calc(100vw - 24px);
+  }
+  .modal-title {
+    top: -20px;
+    margin: -20px -20px 18px;
+    padding: 14px 20px;
   }
 }
 

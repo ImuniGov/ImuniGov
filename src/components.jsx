@@ -70,7 +70,14 @@ export function Modal({ title, onClose, children }) {
     };
   }, [onClose]);
   return (
-    <dialog ref={ref} className="modal" aria-labelledby={headingId}>
+    <dialog
+      ref={ref}
+      className="modal"
+      aria-labelledby={headingId}
+      onClick={(e) => {
+        if (e.target === ref.current) onClose();
+      }}
+    >
       <div className="modal-title">
         <h2 id={headingId}>{title}</h2>
         <button className="icon-button" onClick={onClose} aria-label="Fechar">

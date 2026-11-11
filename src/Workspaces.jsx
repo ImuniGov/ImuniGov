@@ -239,10 +239,19 @@ export function DocumentReview({
             independenceConfirmed: independent,
             reviewRound: current.review.round,
           }),
-        "Conferência do arquivo registrada.",
+        decision === "rejeitado"
+          ? "Arquivo devolvido para ajuste da família."
+          : "Conferência do arquivo registrada.",
       )
-    )
+    ) {
+      setNote("");
+      setGuidance("");
+      if (decision === "rejeitado") {
+        onClose();
+        return;
+      }
       await refresh();
+    }
   }
   async function candidate(e) {
     e.preventDefault();
@@ -280,9 +289,24 @@ export function DocumentReview({
           }),
         "Decisão do registro salva.",
       )
-    )
+    ) {
+      setNote("");
+      setGuidance("");
       await refresh();
+    }
   }
+  const onHold = Boolean(current.reviewHold || current.review?.onHold);
+  const canVoteDocument =
+    user.role === "ubs" &&
+    current.status === "pendente" &&
+    !onHold &&
+    !current.review?.myVote;
+  const canVoteAnyRecord =
+    user.role === "ubs" &&
+    current.status !== "rejeitado" &&
+    !onHold &&
+    records.some((r) => r.status === "a_conferir" && !r.review?.myVote);
+  const canActUbs = canVoteDocument || canVoteAnyRecord;
   return (
     <Modal title="Conferir caderneta" onClose={onClose}>
       <div className="review-summary">
@@ -357,7 +381,7 @@ export function DocumentReview({
           foram preservados e não contam para esta rodada.
         </p>
       )}
-      {user.role === "ubs" && (
+      {user.role === "ubs" && current.status !== "rejeitado" && (
         <div className="review-state">
           <p>Esta caderneta precisa de três aprovações independentes.</p>
           {current.review?.waitingForTeam && (
@@ -366,59 +390,65 @@ export function DocumentReview({
               mantidas.
             </p>
           )}
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={independent}
-              onChange={(e) => setIndependent(e.target.checked)}
-            />
-            <span>
-              Não tenho vínculo pessoal ou conflito de interesse neste caso e
-              farei minha própria conferência.
-            </span>
-          </label>
-          <details>
-            <summary>Tenho um impedimento para conferir</summary>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const data = Object.fromEntries(new FormData(e.currentTarget));
-                let result;
-                if (
-                  await act(async () => {
-                    result = await send(
-                      `/api/v1/documents/${document.id}/impediment`,
-                      data,
-                    );
-                  })
-                ) {
-                  onClose();
-                }
-                if (result?.hold) {
-                  setNote("");
-                }
-              }}
-            >
-              <Field label="Motivo do impedimento">
-                <textarea
-                  name="reason"
-                  required
-                  minLength={3}
-                  maxLength={500}
-                />
-              </Field>
-              <p className="small muted">
-                Se você já registrou voto neste caso, a conferência será
-                suspensa para análise administrativa, preservando o histórico.
-              </p>
-              <button className="secondary" disabled={busy}>
-                Registrar impedimento
-              </button>
-            </form>
-          </details>
+          {canActUbs && (
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={independent}
+                onChange={(e) => setIndependent(e.target.checked)}
+              />
+              <span>
+                Não tenho vínculo pessoal ou conflito de interesse neste caso e
+                farei minha própria conferência.
+              </span>
+            </label>
+          )}
+          {!onHold && (
+            <details>
+              <summary>Tenho um impedimento para conferir</summary>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const data = Object.fromEntries(
+                    new FormData(e.currentTarget),
+                  );
+                  let result;
+                  if (
+                    await act(async () => {
+                      result = await send(
+                        `/api/v1/documents/${document.id}/impediment`,
+                        data,
+                      );
+                    })
+                  ) {
+                    onClose();
+                  }
+                  if (result?.hold) {
+                    setNote("");
+                  }
+                }}
+              >
+                <Field label="Motivo do impedimento">
+                  <textarea
+                    name="reason"
+                    required
+                    minLength={3}
+                    maxLength={500}
+                  />
+                </Field>
+                <p className="small muted">
+                  Se você já registrou voto neste caso, a conferência será
+                  suspensa para análise administrativa, preservando o histórico.
+                </p>
+                <button className="secondary" disabled={busy}>
+                  Registrar impedimento
+                </button>
+              </form>
+            </details>
+          )}
         </div>
       )}
-      {user.role === "ubs" && (
+      {canActUbs && (
         <>
           <Field label="Motivo da decisão">
             <textarea
@@ -543,7 +573,7 @@ export function DocumentReview({
           legível no original.
         </p>
       )}
-      {user.role === "ubs" && (
+      {user.role === "ubs" && current.status !== "rejeitado" && !onHold && (
         <details className="transcription">
           <summary>Digitar uma dose do arquivo</summary>
           <form onSubmit={candidate}>
@@ -676,6 +706,11 @@ export function DocumentReview({
           </p>
         ))}
       </details>
+      <div className="modal-actions">
+        <button className="secondary" type="button" onClick={onClose}>
+          Fechar
+        </button>
+      </div>
     </Modal>
   );
 }
