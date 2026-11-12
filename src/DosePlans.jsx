@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, send } from "./api";
-import { Empty, Field, Section } from "./components";
+import { Empty, Field, RouteDetails, Section } from "./components";
 import { useVaccineCatalog } from "./useVaccineCatalog";
-import { formatDate } from "./format";
+import { formatDate, vaccineLabel } from "./format";
 
-export default function DosePlans({ selected, user, act, busy, onError }) {
+export default function DosePlans({
+  selected,
+  user,
+  act,
+  busy,
+  onError,
+  route,
+}) {
   const [plans, setPlans] = useState([]);
   const { names: vaccines, catalog } = useVaccineCatalog();
   const refresh = useCallback(async () => {
@@ -42,17 +49,14 @@ export default function DosePlans({ selected, user, act, busy, onError }) {
   }
   if (!selected) return null;
   return (
-    <Section
-      title="Datas definidas pela UBS"
-      description="A equipe pode registrar a próxima data de qualquer vacina, inclusive fora das regras automáticas."
-    >
+    <Section title="Datas definidas pela UBS">
       {plans.length ? (
         plans.map((plan) => (
           <article className="guidance-card" key={plan.id}>
             <div className="section-heading plan-heading">
               <div>
                 <h3>
-                  {plan.vaccine} • Dose {plan.dose}
+                  {vaccineLabel(plan.vaccine)} • Dose {plan.dose}
                 </h3>
                 <p>{formatDate(plan.due_date)} • Definida pela UBS</p>
               </div>
@@ -68,8 +72,12 @@ export default function DosePlans({ selected, user, act, busy, onError }) {
             </div>
             <p>{plan.note}</p>
             {user.role === "ubs" && plan.status === "ativa" && (
-              <details>
-                <summary>Cancelar ou substituir esta data</summary>
+              <RouteDetails
+                route={route}
+                parent={["pessoa", selected]}
+                path={["pessoa", selected, "cancelar-data", plan.id]}
+                title="Cancelar ou substituir esta data"
+              >
                 <form onSubmit={(e) => cancel(e, plan)}>
                   <fieldset disabled={busy}>
                     <Field label="Motivo do cancelamento">
@@ -86,7 +94,7 @@ export default function DosePlans({ selected, user, act, busy, onError }) {
                     </button>
                   </fieldset>
                 </form>
-              </details>
+              </RouteDetails>
             )}
           </article>
         ))
@@ -97,8 +105,13 @@ export default function DosePlans({ selected, user, act, busy, onError }) {
         </Empty>
       )}
       {user.role === "ubs" && (
-        <details className="plan-create">
-          <summary>Definir uma próxima data</summary>
+        <RouteDetails
+          className="plan-create"
+          route={route}
+          parent={["pessoa", selected]}
+          path={["pessoa", selected, "definir-proxima-data"]}
+          title="Definir uma próxima data"
+        >
           <form onSubmit={create}>
             <fieldset disabled={busy}>
               <Field label="Vacina">
@@ -160,7 +173,7 @@ export default function DosePlans({ selected, user, act, busy, onError }) {
               </button>
             </fieldset>
           </form>
-        </details>
+        </RouteDetails>
       )}
     </Section>
   );

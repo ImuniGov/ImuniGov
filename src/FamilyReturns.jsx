@@ -22,10 +22,7 @@ export default function FamilyReturns({
   );
   if (!visible.length) return null;
   return (
-    <Section
-      title="Retornos da UBS"
-      description="O que foi conferido e o que fazer agora."
-    >
+    <Section title="Retornos da UBS">
       <div className="feedback-list">
         {visible.map((i) => (
           <article
@@ -52,7 +49,7 @@ export default function FamilyReturns({
                 className="secondary"
                 onClick={() => resend(i.dependentId)}
               >
-                Enviar outro arquivo desta pessoa
+                Enviar outra caderneta
               </button>
             )}
           </article>

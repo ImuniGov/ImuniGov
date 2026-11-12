@@ -1,4 +1,11 @@
-import { useContext, useEffect, useId, useRef, useState } from "react";
+import {
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { X, Plus, ArrowUpRight } from "lucide-react";
 
 import { FeedbackContext } from "./feedback";
@@ -56,19 +63,20 @@ export function Modal({ title, onClose, children }) {
   const ref = useRef(null);
   const headingId = useId();
   const feedback = useContext(FeedbackContext);
+  const cancel = useEffectEvent(() => onClose());
   useEffect(() => {
     const d = ref.current;
     d.showModal();
     const close = (e) => {
       e.preventDefault();
-      onClose();
+      cancel();
     };
     d.addEventListener("cancel", close);
     return () => {
       d.removeEventListener("cancel", close);
       d.close();
     };
-  }, [onClose]);
+  }, []);
   return (
     <dialog
       ref={ref}
@@ -160,5 +168,32 @@ export function OpenFile({ document }) {
     >
       Abrir original <ArrowUpRight size={15} />
     </a>
+  );
+}
+
+export function RouteDetails({
+  route,
+  path,
+  parent,
+  children,
+  title,
+  className,
+}) {
+  const open = route.parts.join("/") === path.join("/");
+  return (
+    <details className={className} open={open}>
+      <summary
+        aria-expanded={open}
+        onClick={(event) => {
+          event.preventDefault();
+          route.open(open ? parent || [] : path, {
+            replace: open || route.parts[0] === "conferir-caderneta",
+          });
+        }}
+      >
+        {title}
+      </summary>
+      {children}
+    </details>
   );
 }

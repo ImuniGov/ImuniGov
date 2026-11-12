@@ -454,8 +454,8 @@ fieldset {
   flex-direction: column;
   gap: 7px;
 }
-.sidebar nav button,
-.sidebar-bottom > button {
+.sidebar nav :is(a, button),
+.sidebar-bottom > :is(a, button) {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -467,16 +467,16 @@ fieldset {
   color: var(--muted);
   width: 100%;
 }
-.sidebar nav button:hover,
-.sidebar-bottom > button:hover {
+.sidebar nav :is(a, button):hover,
+.sidebar-bottom > :is(a, button):hover {
   background: #f6f9f6;
 }
-.sidebar nav button.active,
-.sidebar-bottom > button.active {
+.sidebar nav :is(a, button).active,
+.sidebar-bottom > :is(a, button).active {
   background: #eaf4ed;
   color: #176c50;
 }
-.sidebar nav button svg {
+.sidebar nav :is(a, button) svg {
   flex-shrink: 0;
   stroke-width: 1.7;
 }
@@ -2023,7 +2023,7 @@ details form {
     justify-content: space-around;
     box-shadow: none;
   }
-  .mobile-tabs button {
+  .mobile-tabs :is(a, button) {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2036,7 +2036,7 @@ details form {
     border-radius: 4px;
     padding: 5px;
   }
-  .mobile-tabs button.active {
+  .mobile-tabs :is(a, button).active {
     background: #edf5e8;
     color: #2d7450;
     font-weight: 700;
@@ -2162,8 +2162,8 @@ details form {
     min-height: 44px;
     min-width: 44px;
   }
-  .sidebar nav button,
-  .sidebar-bottom > button {
+  .sidebar nav :is(a, button),
+  .sidebar-bottom > :is(a, button) {
     min-height: 44px;
   }
   .family-card .button-row .text-link {
@@ -2244,12 +2244,12 @@ summary {
   font-size: 12px;
   letter-spacing: 0.06em;
 }
-.sidebar nav button,
-.sidebar-bottom > button {
+.sidebar nav :is(a, button),
+.sidebar-bottom > :is(a, button) {
   font-size: 14px;
   min-height: 44px;
 }
-.sidebar nav button.active {
+.sidebar nav :is(a, button).active {
   background: #e9f0ec;
   border-left: 3px solid var(--green);
 }
@@ -2418,15 +2418,16 @@ summary {
 }
 .skip-link {
   position: fixed;
-  top: -100px;
+  top: 12px;
   left: 20px;
+  clip-path: inset(50%);
   z-index: 100;
   padding: 16px;
   background: white;
   border: 2px solid var(--green);
 }
 .skip-link:focus {
-  top: 12px;
+  clip-path: none;
 }
 .feedback-list {
   padding: 0 24px 20px;
@@ -2500,7 +2501,7 @@ summary {
     border-right: 0;
   }
   .bottom-nav button,
-  .mobile-tabs button {
+  .mobile-tabs :is(a, button) {
     min-height: 48px;
     font-size: 12px;
     flex: 1;
@@ -2551,5 +2552,281 @@ summary {
   }
   .schedule-banner p {
     font-size: 14px;
+  }
+}
+
+.sidebar a,
+.mobile-tabs a {
+  text-decoration: none;
+}
+
+.task-list {
+  display: grid;
+  gap: 12px;
+  padding: 0 26px 0 42px;
+  margin: 0 0 22px;
+}
+.task-list li::marker {
+  color: #2d7450;
+  font-weight: 700;
+}
+.agent-guide > p {
+  margin: 0 24px 16px;
+}
+.notice-box .task-list {
+  padding-left: 22px;
+  margin-bottom: 0;
+}
+
+.calendar-filters,
+.calendar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 0 24px 16px;
+}
+.calendar-filters .field {
+  flex: 1 1 170px;
+  margin: 0;
+}
+.calendar-controls {
+  align-items: center;
+  justify-content: space-between;
+}
+.calendar-month {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 230px;
+}
+.calendar-month strong::first-letter,
+.calendar-group > h3::first-letter {
+  text-transform: uppercase;
+}
+.calendar-group > h3 {
+  margin: 6px 24px 0;
+  font-size: 1rem;
+  color: #315846;
+}
+.calendar-tip,
+.vaccination-calendar > .form-error {
+  margin: 0 24px 16px;
+}
+.calendar-tip {
+  padding: 12px;
+  border-inline-start: 3px solid #af7827;
+  background: #fff8e9;
+}
+.vaccination-calendar .schedule-item {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: start;
+}
+.vaccination-calendar .schedule-copy {
+  overflow-wrap: anywhere;
+}
+.vaccination-calendar .schedule-side {
+  padding-left: 0;
+}
+.vaccination-calendar .schedule-side .text-link {
+  min-height: 44px;
+}
+
+.review-steps ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  gap: 5px;
+  padding: 0;
+  margin: 16px 0;
+}
+.review-steps button {
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 60px;
+  font-size: 0.875rem;
+  border-bottom: 2px solid #d9e5dc;
+  color: #315846;
+}
+.review-steps button[aria-current="step"] {
+  color: #1f5e3d;
+  background: #edf5e8;
+  border-color: #2d7450;
+  font-weight: 700;
+}
+.review-steps button span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e2ede3;
+}
+.review-steps button[aria-current="step"] span {
+  background: #2d7450;
+  color: #fff;
+}
+.review-heading {
+  margin: 12px 0;
+}
+.review-decision {
+  margin-block: 16px;
+}
+.record-card > details {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+.review-actions {
+  position: sticky;
+  bottom: -20px;
+  background: white;
+  padding: 10px 0;
+  border-top: 1px solid #e2eae1;
+}
+
+@media (max-width: 680px) {
+  .mobile-tabs a {
+    color: #486250;
+  }
+  .breadcrumb {
+    min-width: 0;
+  }
+  .breadcrumb > span,
+  .breadcrumb > svg {
+    display: none;
+  }
+  .breadcrumb strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .document-table {
+    overflow: visible;
+  }
+  .document-table table,
+  .document-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .document-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .document-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+    padding: 12px 16px;
+    border-top: 1px solid #e2eae1;
+  }
+  .document-table tbody td {
+    padding: 2px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .document-table tbody td:first-child,
+  .document-table tbody td[data-label] {
+    grid-column: 1 / -1;
+  }
+  .document-table tbody td[data-label]::before {
+    content: attr(data-label) " · ";
+    color: #486250;
+  }
+  .document-table tbody td:last-child .text-link {
+    min-height: 44px;
+  }
+  .document-table .file-cell {
+    min-width: 0;
+  }
+  .calendar-filters,
+  .calendar-controls {
+    padding-inline: 16px;
+  }
+  .calendar-filters .field {
+    flex-basis: 120px;
+  }
+  .calendar-month {
+    width: 100%;
+  }
+  .vaccination-calendar .schedule-item {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .vaccination-calendar .date-tile {
+    min-width: 0;
+    width: 48px;
+  }
+  .vaccination-calendar .schedule-side {
+    grid-column: 2;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 380px) {
+  .calendar-filters .field {
+    flex-basis: 100%;
+  }
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  padding: 8px;
+  margin: 0 24px 16px;
+  border: 1px solid #dde8dc;
+  border-radius: 10px;
+  background: #f8faf7;
+  max-width: 520px;
+}
+.month-grid > * {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.month-grid abbr {
+  min-height: 30px;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #486250;
+}
+.month-grid button {
+  min-height: 44px;
+  background: #deeedf;
+  font-weight: 750;
+  color: #234932;
+}
+.month-grid button:hover,
+.month-grid button[aria-pressed="true"] {
+  background: #286043;
+  color: white;
+}
+.month-grid [aria-current="date"] {
+  box-shadow: inset 0 0 0 1px #50745d;
+}
+.calendar-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 24px 8px;
+  gap: 8px;
+}
+@media (max-width: 680px) {
+  .month-grid {
+    margin-inline: 12px;
+    padding: 5px;
   }
 }

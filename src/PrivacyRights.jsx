@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, send } from "./api";
-import { Field } from "./components";
+import { Field, RouteDetails } from "./components";
 import { formatDate } from "./format";
 
-export default function PrivacyRights({ act, busy, onError, onPrivacyChange }) {
+export default function PrivacyRights({
+  act,
+  busy,
+  onError,
+  onPrivacyChange,
+  route,
+}) {
   const [items, setItems] = useState([]),
     [acceptances, setAcceptances] = useState([]);
   const refresh = useCallback(async () => {
@@ -37,8 +43,11 @@ export default function PrivacyRights({ act, busy, onError, onPrivacyChange }) {
         O responsável analisará o pedido e informará eventuais dados que
         precisem ser conservados por lei.
       </p>
-      <details>
-        <summary>Fazer uma solicitação sobre meus dados</summary>
+      <RouteDetails
+        route={route}
+        path={["solicitar-meus-dados"]}
+        title="Fazer um pedido sobre meus dados"
+      >
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
             <Field label="O que você precisa?">
@@ -72,7 +81,7 @@ export default function PrivacyRights({ act, busy, onError, onPrivacyChange }) {
             </button>
           </fieldset>
         </form>
-      </details>
+      </RouteDetails>
       {items.map((i) => (
         <div className="feedback-entry" key={i.id}>
           <strong>

@@ -1,12 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
-import { Camera, Check, FileUp, RefreshCw, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, FileUp, RefreshCw, X } from "lucide-react";
 import { api, send } from "./api";
 import DosePlans from "./DosePlans";
 import FamilyReturns from "./FamilyReturns";
-import { Badge, Empty, Field, Modal, OpenFile, Section } from "./components";
+import {
+  Badge,
+  Empty,
+  Field,
+  Modal,
+  OpenFile,
+  RouteDetails,
+  Section,
+} from "./components";
 
 import { useVaccineCatalog } from "./useVaccineCatalog";
-import { formatDate, today } from "./format";
+import { formatDate, today, vaccineLabel } from "./format";
 
 export function UploadForm({ people, selected, onClose, act, busy }) {
   const { names: vaccines } = useVaccineCatalog();
@@ -63,7 +71,7 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
             <p className="muted">
-              Uma foto nítida ajuda a equipe. Confira o arquivo antes de enviar.
+              Tire uma foto nítida da caderneta ou envie um PDF.
             </p>
             <Field label="De quem é a caderneta?">
               <select name="dependentId" defaultValue={selected} required>
@@ -79,7 +87,9 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
                 <select name="vaccine" required>
                   <option value="">Selecione</option>
                   {vaccines.map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {vaccineLabel(v)}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -162,8 +172,7 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
               </p>
             )}
             <p className="small muted">
-              O envio não confirma doses. As informações passam pela conferência
-              da equipe.
+              A equipe confere a caderneta e confirma as doses.
             </p>
             <div className="modal-actions">
               <button type="button" className="secondary" onClick={onClose}>
@@ -180,6 +189,80 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
   );
 }
 
+const reviewSteps = [
+  ["arquivo", "Arquivo"],
+  ["decisao", "Decisão"],
+  ["doses", "Doses"],
+  ["historico", "Histórico"],
+];
+
+function ReviewDecision({ options, onSubmit, busy, record = false }) {
+  const [decision, setDecision] = useState("");
+  const refused = decision === "rejeitado" || decision === "recusado";
+  return (
+    <form
+      className="review-decision"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.currentTarget));
+        onSubmit(decision, data.note.trim(), data.guidance.trim());
+      }}
+    >
+      <fieldset disabled={busy}>
+        <Field label="Sua decisão">
+          <select
+            required
+            value={decision}
+            onChange={(event) => setDecision(event.target.value)}
+          >
+            <option value="">Selecione</option>
+            {options.map(([value, label, disabled]) => (
+              <option key={value} value={value} disabled={disabled}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {decision && (
+          <>
+            <Field
+              label={
+                record || refused ? "Motivo da decisão" : "Motivo (opcional)"
+              }
+            >
+              <textarea
+                name="note"
+                rows={3}
+                required={record || refused}
+                minLength={3}
+                maxLength={300}
+              />
+            </Field>
+            <Field
+              label={
+                refused
+                  ? "O que a família deve fazer"
+                  : "Orientação para a família (opcional)"
+              }
+            >
+              <textarea
+                name="guidance"
+                rows={2}
+                required={refused}
+                minLength={3}
+                maxLength={500}
+              />
+            </Field>
+          </>
+        )}
+        <button className="primary" type="submit" disabled={!decision}>
+          {busy ? "Salvando…" : "Registrar decisão"}
+        </button>
+      </fieldset>
+    </form>
+  );
+}
+
 export function DocumentReview({
   document,
   user,
@@ -187,7 +270,23 @@ export function DocumentReview({
   act,
   busy,
   onError,
+  step,
+  route,
+  onStep,
 }) {
+  const guided = user.role === "ubs";
+  const activeStep = Math.max(
+    0,
+    reviewSteps.findIndex(([id]) => id === step),
+  );
+  const heading = useRef(null);
+  function move(index) {
+    onStep(reviewSteps[index][0]);
+    requestAnimationFrame(() => {
+      heading.current?.focus({ preventScroll: true });
+      heading.current?.closest("dialog")?.scrollTo({ top: 0 });
+    });
+  }
   const { names: vaccines } = useVaccineCatalog();
   const [current, setCurrent] = useState(document),
     [records, setRecords] = useState([]),
@@ -195,9 +294,8 @@ export function DocumentReview({
     [job, setJob] = useState(null),
     [audit, setAudit] = useState([]),
     [priorVotes, setPriorVotes] = useState([]),
-    [note, setNote] = useState(""),
-    [guidance, setGuidance] = useState(""),
-    [independent, setIndependent] = useState(false);
+    [confirmedRound, setConfirmedRound] = useState(null);
+  const independent = confirmedRound === current.review?.round;
   const refresh = useCallback(async () => {
     const [d, r, pend, p, a, h] = await Promise.all([
       api("/api/documents/" + document.id),
@@ -221,7 +319,7 @@ export function DocumentReview({
     const timer = setInterval(() => refresh().catch(onError), 8000);
     return () => clearInterval(timer);
   }, [refresh, onError]);
-  async function decide(decision) {
+  async function decide(decision, note, guidance) {
     if (
       decision === "rejeitado" &&
       (note.trim().length < 3 || guidance.trim().length < 3)
@@ -244,13 +342,12 @@ export function DocumentReview({
           : "Conferência do arquivo registrada.",
       )
     ) {
-      setNote("");
-      setGuidance("");
       if (decision === "rejeitado") {
         onClose();
         return;
       }
       await refresh();
+      onStep("doses");
     }
   }
   async function candidate(e) {
@@ -268,12 +365,10 @@ export function DocumentReview({
       await refresh();
     }
   }
-  async function recordDecision(record, decision) {
-    if (note.trim().length < 3) {
+  async function recordDecision(record, decision, note, guidance) {
+    if (note.length < 3 || (decision === "recusado" && guidance.length < 3)) {
       onError(
-        new Error(
-          "Escreva uma justificativa de pelo menos 3 caracteres antes de decidir o registro.",
-        ),
+        new Error("Informe o motivo e, se recusar a dose, oriente a família."),
       );
       return;
     }
@@ -290,9 +385,8 @@ export function DocumentReview({
         "Decisão do registro salva.",
       )
     ) {
-      setNote("");
-      setGuidance("");
       await refresh();
+      onStep("doses");
     }
   }
   const onHold = Boolean(current.reviewHold || current.review?.onHold);
@@ -307,8 +401,13 @@ export function DocumentReview({
     !onHold &&
     records.some((r) => r.status === "a_conferir" && !r.review?.myVote);
   const canActUbs = canVoteDocument || canVoteAnyRecord;
+  const wizardPath = route.parts.slice(0, 2);
+  const canSubmit = independent && !current.review?.waitingForTeam && !busy;
   return (
-    <Modal title="Conferir caderneta" onClose={onClose}>
+    <Modal
+      title={guided ? "Conferir caderneta" : "Detalhes da caderneta"}
+      onClose={onClose}
+    >
       <div className="review-summary">
         <div>
           <strong>{current.dependent}</strong>
@@ -318,60 +417,87 @@ export function DocumentReview({
         </div>
         <Badge status={current.status} />
       </div>
-      <OpenFile document={current} />
-      {current.contentType.startsWith("image/") ? (
-        <img
-          className="evidence-image"
-          src={current.fileUrl}
-          alt="Caderneta enviada para conferência"
-        />
-      ) : (
-        <iframe
-          className="evidence-pdf"
-          title="Caderneta PDF"
-          src={current.fileUrl}
-        />
+      {guided && (
+        <nav className="review-steps" aria-label="Etapas da conferência">
+          <ol>
+            {reviewSteps.map(([id, label], index) => (
+              <li key={id}>
+                <button
+                  type="button"
+                  aria-current={index === activeStep ? "step" : undefined}
+                  disabled={busy}
+                  onClick={() => move(index)}
+                >
+                  <span aria-hidden="true">{index + 1}</span>
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </nav>
       )}
-      <p className="small muted">
-        Informado no envio: {current.vaccine} • {formatDate(current.doseDate)}
-      </p>
-      {current.familyNote && (
-        <p className="notice-box">
-          Observação da família: {current.familyNote}
+      {guided && (
+        <h3 className="review-heading" tabIndex={-1} ref={heading}>
+          {reviewSteps[activeStep][1]}
+        </h3>
+      )}
+      <div hidden={guided && activeStep !== 0}>
+        <OpenFile document={current} />
+        {current.contentType.startsWith("image/") ? (
+          <img
+            className="evidence-image"
+            src={current.fileUrl}
+            alt="Caderneta enviada para conferência"
+          />
+        ) : (
+          <iframe
+            className="evidence-pdf"
+            title="Caderneta PDF"
+            src={current.fileUrl}
+          />
+        )}
+        <p className="small muted">
+          Informado no envio: {vaccineLabel(current.vaccine)} •{" "}
+          {formatDate(current.doseDate)}
         </p>
-      )}
-      {job && (
-        <div className="processing-box">
-          <div>
-            <Badge status={job.status} />
-            <small>{job.attempts} tentativa(s)</small>
-          </div>
-          {job.error && <p>{job.error}</p>}
-          {user.role === "ubs" &&
-            ["failed", "unreadable"].includes(job.status) && (
-              <button
-                className="text-link"
-                disabled={busy}
-                onClick={async () => {
-                  if (
-                    await act(
-                      () => send(`/api/v1/documents/${document.id}/retry`, {}),
-                      "Nova leitura agendada.",
+        {current.familyNote && (
+          <p className="notice-box">
+            Observação da família: {current.familyNote}
+          </p>
+        )}
+        {job && (
+          <div className="processing-box">
+            <div>
+              <Badge status={job.status} />
+              <small>{job.attempts} tentativa(s)</small>
+            </div>
+            {job.error && <p>{job.error}</p>}
+            {user.role === "ubs" &&
+              ["failed", "unreadable"].includes(job.status) && (
+                <button
+                  className="text-link"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (
+                      await act(
+                        () =>
+                          send(`/api/v1/documents/${document.id}/retry`, {}),
+                        "Nova leitura agendada.",
+                      )
                     )
-                  )
-                    await refresh();
-                }}
-              >
-                <RefreshCw size={15} /> Repetir leitura
-              </button>
-            )}
-        </div>
-      )}
-      {(current.reviewHold || current.review?.onHold) && (
+                      await refresh();
+                  }}
+                >
+                  <RefreshCw size={15} /> Repetir leitura
+                </button>
+              )}
+          </div>
+        )}
+      </div>
+      {onHold && (
         <p className="form-error" role="alert">
-          Conferência suspensa por impedimento informado após voto. O histórico
-          foi preservado e o caso aguarda análise administrativa para abertura
-          de nova rodada independente.
+          Conferência pausada. A administração vai analisar o impedimento antes
+          de abrir uma nova rodada.
         </p>
       )}
       {current.review?.round > 1 && (
@@ -381,21 +507,25 @@ export function DocumentReview({
           foram preservados e não contam para esta rodada.
         </p>
       )}
-      {user.role === "ubs" && current.status !== "rejeitado" && (
-        <div className="review-state">
+      {guided && current.status !== "rejeitado" && (
+        <div
+          className="review-state"
+          hidden={activeStep !== 1 && activeStep !== 2}
+        >
           <p>Esta caderneta precisa de três aprovações independentes.</p>
           {current.review?.waitingForTeam && (
-            <p role="status">
-              Aguardando equipe completa. As restrições geográficas serão
-              mantidas.
-            </p>
+            <p role="status">Aguardando os três profissionais habilitados.</p>
           )}
           {canActUbs && (
             <label className="checkbox">
               <input
                 type="checkbox"
                 checked={independent}
-                onChange={(e) => setIndependent(e.target.checked)}
+                onChange={(e) =>
+                  setConfirmedRound(
+                    e.target.checked ? current.review?.round : null,
+                  )
+                }
               />
               <span>
                 Não tenho vínculo pessoal ou conflito de interesse neste caso e
@@ -404,27 +534,24 @@ export function DocumentReview({
             </label>
           )}
           {!onHold && (
-            <details>
-              <summary>Tenho um impedimento para conferir</summary>
+            <RouteDetails
+              route={route}
+              parent={[...wizardPath, step || "decisao"]}
+              path={[...wizardPath, step || "decisao", "informar-impedimento"]}
+              title="Tenho um impedimento para conferir"
+            >
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
                   const data = Object.fromEntries(
                     new FormData(e.currentTarget),
                   );
-                  let result;
                   if (
-                    await act(async () => {
-                      result = await send(
-                        `/api/v1/documents/${document.id}/impediment`,
-                        data,
-                      );
-                    })
+                    await act(() =>
+                      send(`/api/v1/documents/${document.id}/impediment`, data),
+                    )
                   ) {
                     onClose();
-                  }
-                  if (result?.hold) {
-                    setNote("");
                   }
                 }}
               >
@@ -444,272 +571,292 @@ export function DocumentReview({
                   Registrar impedimento
                 </button>
               </form>
-            </details>
+            </RouteDetails>
           )}
         </div>
       )}
-      {canActUbs && (
-        <>
-          <Field label="Motivo da decisão">
-            <textarea
-              maxLength={300}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Explique o que você conferiu ou o motivo da recusa."
-              rows={3}
-            />
-          </Field>
-          <Field label="O que a família deve fazer">
-            <textarea
-              maxLength={500}
-              value={guidance}
-              onChange={(e) => setGuidance(e.target.value)}
-              rows={2}
-              placeholder="Obrigatório ao devolver o arquivo ou recusar uma dose."
-            />
-          </Field>
-        </>
-      )}
-      {current.review?.myVote && (
-        <p className="review-state">
-          {current.status === "pendente"
-            ? "Seu voto foi registrado. A conclusão depende das outras conferências independentes."
-            : "Sua decisão foi registrada."}
-        </p>
-      )}
-      {user.role === "ubs" &&
-        current.status === "pendente" &&
-        !current.reviewHold &&
-        !current.review?.onHold &&
-        !current.review?.myVote && (
-          <div className="button-row">
-            <button
-              className="secondary danger-text"
-              disabled={busy || !independent || current.review?.waitingForTeam}
-              onClick={() => decide("rejeitado")}
-            >
-              Devolver para ajuste
-            </button>
-            <button
-              className="primary"
-              disabled={busy || !independent || current.review?.waitingForTeam}
-              onClick={() => decide("aprovado")}
-            >
-              <Check size={16} /> Conferir arquivo
-            </button>
+      <div hidden={guided && activeStep !== 1}>
+        {current.review?.myVote && (
+          <p className="review-state">
+            {current.status === "pendente"
+              ? "Seu voto foi registrado. A conclusão depende das outras conferências independentes."
+              : "Sua decisão foi registrada."}
+          </p>
+        )}
+        {canVoteDocument && (
+          <ReviewDecision
+            key={current.review?.round}
+            options={[
+              ["aprovado", "Aprovar o arquivo"],
+              ["rejeitado", "Devolver para ajuste"],
+            ]}
+            onSubmit={decide}
+            busy={!canSubmit}
+          />
+        )}
+        {guided && !canVoteDocument && !current.review?.myVote && (
+          <p>
+            Arquivo: <Badge status={current.status} />
+          </p>
+        )}
+        {current.reviewGuidance && (
+          <div className="notice-box">
+            <strong>O que fazer agora</strong>
+            <p>{current.reviewGuidance}</p>
           </div>
         )}
-      {current.reviewGuidance && (
-        <div className="notice-box">
-          <strong>O que fazer agora</strong>
-          <p>{current.reviewGuidance}</p>
-        </div>
-      )}
-      {current.reviewedAt && (
-        <div className="notice-box">
-          <strong>
-            {current.reviewer} • {formatDate(current.reviewedAt)}
-          </strong>
-          <p>{current.reviewNote}</p>
-        </div>
-      )}
-      <h3 className="subheading">Doses encontradas no arquivo</h3>
-      <p className="small muted">
-        Aprovar o arquivo não confirma doses. Cada registro é conferido
-        separadamente.
-      </p>
-      {records.length ? (
-        records.map((r) => (
-          <article className="record-card" key={r.id}>
-            <div>
-              <strong>
-                {r.vaccine} • Dose {r.dose}
-              </strong>
-              <small>
-                {formatDate(r.dose_date)} •{" "}
-                {r.origin === "ocr"
-                  ? "Leitura assistida"
-                  : "Transcrição da UBS"}
-                {r.confidence ? ` • Leitura automática: ${r.confidence}%` : ""}
-              </small>
-            </div>
-            <Badge status={r.status} />
-            {r.review_note && <p>{r.review_note}</p>}
-            {r.review_guidance && (
-              <p>
-                <strong>O que fazer:</strong> {r.review_guidance}
-              </p>
-            )}
-            {r.review?.myVote && <p>Seu voto está registrado.</p>}
-            {user.role === "ubs" &&
-              r.status === "a_conferir" &&
-              !current.reviewHold &&
-              !current.review?.onHold &&
-              !r.review?.myVote && (
-                <div className="button-row">
-                  <button
-                    className="secondary danger-text"
-                    disabled={busy || !independent}
-                    onClick={() => recordDecision(r, "recusado")}
-                  >
-                    Recusar registro
-                  </button>
-                  <button
-                    className="secondary"
-                    disabled={
-                      busy || !independent || current.status !== "aprovado"
-                    }
-                    onClick={() => recordDecision(r, "validado")}
-                  >
-                    Confirmar registro
-                  </button>
-                </div>
-              )}
-          </article>
-        ))
-      ) : (
-        <p className="muted">
-          Nenhuma dose identificada ainda. A UBS pode transcrever o que estiver
-          legível no original.
+        {current.reviewedAt && (
+          <div className="notice-box">
+            <strong>
+              {current.reviewer} • {formatDate(current.reviewedAt)}
+            </strong>
+            <p>{current.reviewNote}</p>
+          </div>
+        )}
+      </div>
+      <div hidden={guided && activeStep !== 2}>
+        {!guided && (
+          <h3 className="subheading">Doses encontradas no arquivo</h3>
+        )}
+        <p className="small muted">
+          A equipe confere cada dose separadamente do arquivo.
         </p>
-      )}
-      {user.role === "ubs" && current.status !== "rejeitado" && !onHold && (
-        <details className="transcription">
-          <summary>Digitar uma dose do arquivo</summary>
-          <form onSubmit={candidate}>
-            <fieldset disabled={busy}>
-              <Field label="Vacina">
-                <select name="vaccine" required>
-                  {vaccines.map((v) => (
-                    <option key={v}>{v}</option>
-                  ))}
-                </select>
-              </Field>
-              <div className="form-grid">
-                <Field
-                  label="Número da dose"
-                  name="dose"
-                  type="number"
-                  min="1"
-                  max="10"
-                  defaultValue="1"
-                  required
-                />
-                <Field
-                  label="Data da dose"
-                  name="doseDate"
-                  type="date"
-                  min="1900-01-01"
-                  max={today()}
-                  required
-                />
-              </div>
-              <button className="secondary" type="submit">
-                Adicionar como a conferir
-              </button>
-            </fieldset>
-          </form>
-        </details>
-      )}
-      <h3 className="subheading">Possíveis pendências desta pessoa</h3>
-      <p className="small muted">
-        Contexto calculado automaticamente pelas regras vigentes (sujeito à
-        conferência profissional da UBS).
-      </p>
-      {pendings.filter((p) => p.status === "aberta").length ? (
-        <div className="pending-list">
-          {pendings
-            .filter((p) => p.status === "aberta")
-            .map((p) => (
-              <article className="record-card" key={p.id}>
-                <div>
-                  <strong>
-                    {p.vaccine} • Dose {p.dose}
-                  </strong>
-                  <small>
-                    Cálculo automático • Regra {p.rule_id} ({p.rule_version})
-                  </small>
-                  <p>{p.reason}</p>
-                </div>
-                <Badge status={p.status} />
-              </article>
-            ))}
-        </div>
-      ) : (
-        <p className="muted">
-          Nenhuma pendência aberta nas regras automáticas para esta pessoa.
-        </p>
-      )}
-      {pendings.some((p) => p.status === "resolvida") && (
-        <details className="audit">
-          <summary>
-            Histórico de pendências resolvidas desta pessoa (
-            {pendings.filter((p) => p.status === "resolvida").length})
-          </summary>
-          {pendings
-            .filter((p) => p.status === "resolvida")
-            .map((p) => (
-              <article className="feedback-entry" key={p.id}>
+        {records.length ? (
+          records.map((r) => (
+            <article className="record-card" key={r.id}>
+              <div>
                 <strong>
-                  {p.vaccine} • Dose {p.dose} • Resolvida após conferência UBS
+                  {vaccineLabel(r.vaccine)} • Dose {r.dose}
+                </strong>
+                <small>
+                  {formatDate(r.dose_date)} •{" "}
+                  {r.origin === "ocr"
+                    ? "Leitura automática"
+                    : "Digitada pela equipe"}
+                  {r.confidence
+                    ? ` • Leitura automática: ${r.confidence}%`
+                    : ""}
+                </small>
+              </div>
+              <Badge status={r.status} />
+              {r.review_note && <p>{r.review_note}</p>}
+              {r.review_guidance && (
+                <p>
+                  <strong>O que fazer:</strong> {r.review_guidance}
+                </p>
+              )}
+              {r.review?.myVote && <p>Seu voto está registrado.</p>}
+              {guided &&
+                current.status !== "rejeitado" &&
+                r.status === "a_conferir" &&
+                !onHold &&
+                !r.review?.myVote && (
+                  <RouteDetails
+                    route={route}
+                    parent={[...wizardPath, "doses"]}
+                    path={[...wizardPath, "doses", "conferir-dose", r.id]}
+                    title="Conferir esta dose"
+                  >
+                    {current.status !== "aprovado" && (
+                      <p className="small muted">
+                        A confirmação da dose fica disponível após a aprovação
+                        do arquivo.
+                      </p>
+                    )}
+                    <ReviewDecision
+                      record
+                      key={current.review?.round}
+                      options={[
+                        [
+                          "validado",
+                          "Confirmar dose",
+                          current.status !== "aprovado",
+                        ],
+                        ["recusado", "Recusar registro"],
+                      ]}
+                      onSubmit={(decision, note, guidance) =>
+                        recordDecision(r, decision, note, guidance)
+                      }
+                      busy={!canSubmit}
+                    />
+                  </RouteDetails>
+                )}
+            </article>
+          ))
+        ) : (
+          <p className="muted">
+            Nenhuma dose identificada ainda. A UBS pode transcrever o que
+            estiver legível no original.
+          </p>
+        )}
+        {user.role === "ubs" && current.status !== "rejeitado" && !onHold && (
+          <RouteDetails
+            className="transcription"
+            route={route}
+            parent={[...wizardPath, "doses"]}
+            path={[...wizardPath, "doses", "digitar-dose"]}
+            title="Digitar uma dose do arquivo"
+          >
+            <form onSubmit={candidate}>
+              <fieldset disabled={busy}>
+                <Field label="Vacina">
+                  <select name="vaccine" required>
+                    {vaccines.map((v) => (
+                      <option key={v} value={v}>
+                        {vaccineLabel(v)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <div className="form-grid">
+                  <Field
+                    label="Número da dose"
+                    name="dose"
+                    type="number"
+                    min="1"
+                    max="10"
+                    defaultValue="1"
+                    required
+                  />
+                  <Field
+                    label="Data da dose"
+                    name="doseDate"
+                    type="date"
+                    min="1900-01-01"
+                    max={today()}
+                    required
+                  />
+                </div>
+                <button className="secondary" type="submit">
+                  Adicionar como a conferir
+                </button>
+              </fieldset>
+            </form>
+          </RouteDetails>
+        )}
+      </div>
+      <div hidden={guided && activeStep !== 3}>
+        <h3 className="subheading">Doses para conferir com a UBS</h3>
+        <p className="small muted">
+          O sistema sugere quais doses a equipe deve conferir.
+        </p>
+        {pendings.filter((p) => p.status === "aberta").length ? (
+          <div className="pending-list">
+            {pendings
+              .filter((p) => p.status === "aberta")
+              .map((p) => (
+                <article className="record-card" key={p.id}>
+                  <div>
+                    <strong>
+                      {vaccineLabel(p.vaccine)} • Dose {p.dose}
+                    </strong>
+                    <small>
+                      Cálculo automático • Regra {p.rule_id} ({p.rule_version})
+                    </small>
+                    <p>{p.reason}</p>
+                  </div>
+                  <Badge status={p.status} />
+                </article>
+              ))}
+          </div>
+        ) : (
+          <p className="muted">
+            Nenhuma pendência aberta nas regras automáticas para esta pessoa.
+          </p>
+        )}
+        {pendings.some((p) => p.status === "resolvida") && (
+          <details className="audit">
+            <summary>
+              Histórico de pendências resolvidas desta pessoa (
+              {pendings.filter((p) => p.status === "resolvida").length})
+            </summary>
+            {pendings
+              .filter((p) => p.status === "resolvida")
+              .map((p) => (
+                <article className="feedback-entry" key={p.id}>
+                  <strong>
+                    {vaccineLabel(p.vaccine)} • Dose {p.dose} • Resolvida após
+                    conferência UBS
+                  </strong>
+                  <p>
+                    <strong>Motivo anterior (resolvido):</strong>{" "}
+                    {p.historical_reason || p.reason}
+                  </p>
+                  <small>
+                    Regra {p.rule_id} ({p.rule_version}) •{" "}
+                    {formatDate(p.updated_at)}
+                  </small>
+                </article>
+              ))}
+          </details>
+        )}
+        {priorVotes.length > 0 && (
+          <details className="audit">
+            <summary>Conferências de rodadas anteriores</summary>
+            <p>
+              Estes votos foram preservados e não contam para a rodada atual.
+              Doses concluídas anteriormente mantêm seu histórico próprio.
+            </p>
+            {priorVotes.map((v) => (
+              <article className="feedback-entry" key={v.id}>
+                <strong>
+                  Rodada {v.review_round} ·{" "}
+                  {v.target_type === "document"
+                    ? "Arquivo"
+                    : `${vaccineLabel(v.vaccine)} · Dose ${v.dose}`}
                 </strong>
                 <p>
-                  <strong>Motivo anterior (resolvido):</strong>{" "}
-                  {p.historical_reason || p.reason}
+                  {v.professional} · {formatDate(v.created_at)} ·{" "}
+                  {v.decision === "aprovar" ? "Aprovou" : "Recusou"}
                 </p>
-                <small>
-                  Regra {p.rule_id} ({p.rule_version}) •{" "}
-                  {formatDate(p.updated_at)}
-                </small>
+                <p>{v.note}</p>
+                {v.guidance && (
+                  <p>
+                    <strong>Orientação registrada:</strong> {v.guidance}
+                  </p>
+                )}
               </article>
             ))}
-        </details>
-      )}
-      {priorVotes.length > 0 && (
+          </details>
+        )}
         <details className="audit">
-          <summary>Conferências de rodadas anteriores</summary>
-          <p>
-            Estes votos foram preservados e não contam para a rodada atual.
-            Doses concluídas anteriormente mantêm seu histórico próprio.
-          </p>
-          {priorVotes.map((v) => (
-            <article className="feedback-entry" key={v.id}>
-              <strong>
-                Rodada {v.review_round} ·{" "}
-                {v.target_type === "document"
-                  ? "Arquivo"
-                  : `${v.vaccine} · Dose ${v.dose}`}
-              </strong>
-              <p>
-                {v.professional} · {formatDate(v.created_at)} ·{" "}
-                {v.decision === "aprovar" ? "Aprovou" : "Recusou"}
-              </p>
-              <p>{v.note}</p>
-              {v.guidance && (
-                <p>
-                  <strong>Orientação registrada:</strong> {v.guidance}
-                </p>
-              )}
-            </article>
+          <summary>Histórico da conferência ({audit.length})</summary>
+          {audit.map((a) => (
+            <p key={a.id}>
+              <strong>{a.event.replaceAll("_", " ")}</strong>
+              <small>
+                {formatDate(a.created_at)}
+                {a.details && ` • ${a.details}`}
+              </small>
+            </p>
           ))}
         </details>
-      )}
-      <details className="audit">
-        <summary>Histórico da conferência ({audit.length})</summary>
-        {audit.map((a) => (
-          <p key={a.id}>
-            <strong>{a.event.replaceAll("_", " ")}</strong>
-            <small>
-              {formatDate(a.created_at)}
-              {a.details && ` • ${a.details}`}
-            </small>
-          </p>
-        ))}
-      </details>
-      <div className="modal-actions">
-        <button className="secondary" type="button" onClick={onClose}>
-          Fechar
-        </button>
+      </div>
+      <div className="modal-actions review-actions">
+        {guided && activeStep > 0 && (
+          <button
+            className="secondary"
+            type="button"
+            disabled={busy}
+            onClick={() => move(activeStep - 1)}
+          >
+            Voltar
+          </button>
+        )}
+        {guided && activeStep < reviewSteps.length - 1 ? (
+          <button
+            className="primary"
+            type="button"
+            disabled={busy}
+            onClick={() => move(activeStep + 1)}
+          >
+            Continuar
+          </button>
+        ) : (
+          <button className="secondary" type="button" onClick={onClose}>
+            Fechar
+          </button>
+        )}
       </div>
     </Modal>
   );
@@ -719,6 +866,7 @@ export function FamilyHistory({
   people,
   selected,
   onSelect,
+  route,
   resend,
   user,
   act,
@@ -805,15 +953,17 @@ export function FamilyHistory({
         <FamilyReturns selected={selected} onError={onError} resend={resend} />
       )}
       <DosePlans
+        route={route}
         selected={selected}
         user={user}
         act={act}
         busy={busy}
         onError={onError}
       />
-      <div className="notice-box">
+      <details className="notice-box">
+        <summary>Quais vacinas o sistema acompanha?</summary>
         <ShieldScope />
-      </div>
+      </details>
       {!selected ? (
         <Section title="Vacinas e orientações">
           <Empty title="Selecione uma pessoa">
@@ -845,7 +995,7 @@ export function FamilyHistory({
                     {records.map((r) => (
                       <tr key={r.id}>
                         <td>
-                          <strong>{r.vaccine}</strong>
+                          <strong>{vaccineLabel(r.vaccine)}</strong>
                           <small>Dose {r.dose}</small>
                         </td>
                         <td>{formatDate(r.dose_date)}</td>
@@ -881,7 +1031,7 @@ export function FamilyHistory({
           </Section>
           <Section
             title="Doses para conferir com a UBS"
-            description="Cálculo automático por regras (sujeito à conferência profissional da UBS). Pendências resolvidas ficam separadas no histórico abaixo."
+            description="O sistema sugere quais doses conferir com a unidade de saúde."
           >
             {pendings.filter((p) => p.status === "aberta").length ? (
               <div className="pending-list">
@@ -895,7 +1045,7 @@ export function FamilyHistory({
                             CÁLCULO AUTOMÁTICO • SUJEITO À CONFERÊNCIA DA UBS
                           </span>
                           <h3>
-                            {p.vaccine} • Dose {p.dose}
+                            {vaccineLabel(p.vaccine)} • Dose {p.dose}
                           </h3>
                           <p>{p.reason}</p>
                         </div>
@@ -906,8 +1056,13 @@ export function FamilyHistory({
                         {formatDate(p.updated_at)}
                       </small>
                       {user.role === "ubs" && (
-                        <details className="transcription">
-                          <summary>Orientar a família</summary>
+                        <RouteDetails
+                          className="transcription"
+                          route={route}
+                          parent={["pessoa", selected]}
+                          path={["pessoa", selected, "orientar-familia", p.id]}
+                          title="Orientar a família"
+                        >
                           <form onSubmit={(e) => addGuidance(e, p)}>
                             <fieldset disabled={busy}>
                               <Field label="Orientação da UBS">
@@ -932,7 +1087,7 @@ export function FamilyHistory({
                               </button>
                             </fieldset>
                           </form>
-                        </details>
+                        </RouteDetails>
                       )}
                     </article>
                   ))}
@@ -964,7 +1119,7 @@ export function FamilyHistory({
                             CONFERÊNCIA PROFISSIONAL CONCLUÍDA
                           </span>
                           <h3>
-                            {p.vaccine} • Dose {p.dose}
+                            {vaccineLabel(p.vaccine)} • Dose {p.dose}
                           </h3>
                         </div>
                         <Badge status={p.status} />
@@ -1016,15 +1171,10 @@ export function FamilyHistory({
 function ShieldScope() {
   return (
     <>
-      <strong>Sobre a avaliação automática</strong>
       <p>
-        A avaliação automática cobre o recorte infantil de rotina configurado
-        (BCG, Hepatite B, Pentavalente, Poliomielite VIP, Pneumocócica 10,
-        Rotavírus humano, Meningocócica C, Febre amarela, Tríplice viral e
-        Hepatite A) segundo as regras de 2026. Outras vacinas, esquemas
-        especiais, contraindicações e condições individuais dependem da
-        avaliação profissional da UBS. Registros “a conferir” não contam como
-        doses confirmadas.{" "}
+        O sistema acompanha algumas vacinas da infância. A unidade de saúde pode
+        conferir outras vacinas, situações especiais e doses que ainda aguardam
+        confirmação.{" "}
         <a
           href="https://www.gov.br/saude/pt-br/vacinacao/calendario"
           target="_blank"
@@ -1038,24 +1188,66 @@ function ShieldScope() {
   );
 }
 
-export function Outreach({ user, act, busy, onError }) {
-  const [cases, setCases] = useState([]),
-    [selected, setSelected] = useState(null),
-    [actions, setActions] = useState([]),
-    [q, setQ] = useState(""),
-    [priority, setPriority] = useState("todas"),
-    [status, setStatus] = useState("aberta");
+export function AgentGuide({ compact = false }) {
+  const text = (
+    <>
+      <p>
+        O agente comunitário de saúde (ACS) ajuda as famílias a falar com a
+        unidade de saúde sobre vacinas e datas de retorno.
+      </p>
+      <ol className="task-list">
+        <li>
+          Veja quem precisa de contato. Comece pelos casos que estão esperando
+          há mais tempo.
+        </li>
+        <li>
+          Ligue, mande uma mensagem ou faça uma visita. Oriente a família a
+          procurar a unidade.
+        </li>
+        <li>
+          Registre o contato ou a tentativa. A equipe da unidade confere as
+          cadernetas e as doses.
+        </li>
+      </ol>
+    </>
+  );
+  return compact ? (
+    <details className="notice-box">
+      <summary>Como funciona o trabalho do ACS?</summary>
+      {text}
+    </details>
+  ) : (
+    <Section title="O que faz o ACS?" className="agent-guide">
+      {text}
+    </Section>
+  );
+}
+
+export function Outreach({ user, act, busy, onError, route }) {
+  const [list, setList] = useState(null);
+  const [history, setHistory] = useState(null);
+  const q = route.search;
+  const priority = route.query.get("prioridade") || "todas";
+  const status =
+    route.query.get("situacao") === "resolvida" ? "resolvida" : "aberta";
+  const [action, id, form] = route.parts;
+  const cases = list?.status === status ? list.items : [];
+  const selected =
+    action === "ver-contato" ? cases.find((item) => item.id === id) : null;
+  const selectedId = selected?.id;
+  const actions = history?.id === selectedId ? history?.items || [] : [];
   const refresh = useCallback(async () => {
     const r = await api(`/api/v1/acs/cases?status=${status}`);
-    setCases(r.items);
+    setList({ status, items: r.items });
   }, [status]);
   useEffect(() => {
     Promise.resolve().then(refresh).catch(onError);
   }, [refresh, onError]);
   const loadActions = useCallback(async () => {
-    if (selected)
-      setActions((await api(`/api/v1/acs/cases/${selected.id}/actions`)).items);
-  }, [selected]);
+    if (!selectedId) return;
+    const result = await api(`/api/v1/acs/cases/${selectedId}/actions`);
+    setHistory({ id: selectedId, items: result.items });
+  }, [selectedId]);
   useEffect(() => {
     Promise.resolve().then(loadActions).catch(onError);
   }, [loadActions, onError]);
@@ -1073,6 +1265,7 @@ export function Outreach({ user, act, busy, onError }) {
       )
     ) {
       f.reset();
+      route.open(["ver-contato", selectedId], { replace: true });
       await loadActions();
       await refresh();
     }
@@ -1084,21 +1277,21 @@ export function Outreach({ user, act, busy, onError }) {
   );
   return (
     <>
-      <Section
-        title="Famílias para acompanhamento"
-        description="Os casos mais antigos aparecem primeiro. A fila expõe apenas o necessário para contato."
-      >
+      {user.role === "acs" && <AgentGuide compact />}
+      <Section title="Famílias para contatar">
         <div className="table-toolbar">
           <Field
             label="Buscar pessoa ou responsável"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => route.setSearch(e.target.value)}
             placeholder="Buscar nome"
           />
           <Field label="Prioridade">
             <select
               value={priority}
-              onChange={(e) => setPriority(e.target.value)}
+              onChange={(e) =>
+                route.setFilter("prioridade", e.target.value, "todas")
+              }
             >
               <option value="todas">Todas</option>
               <option value="alta">Alta • 30 dias ou mais</option>
@@ -1106,7 +1299,12 @@ export function Outreach({ user, act, busy, onError }) {
             </select>
           </Field>
           <Field label="Situação">
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <select
+              value={status}
+              onChange={(e) =>
+                route.setFilter("situacao", e.target.value, "aberta")
+              }
+            >
               <option value="aberta">Casos ativos</option>
               <option value="resolvida">Histórico de resolvidos</option>
             </select>
@@ -1118,7 +1316,7 @@ export function Outreach({ user, act, busy, onError }) {
               <button
                 key={c.id}
                 className="outreach-row"
-                onClick={() => setSelected(c)}
+                onClick={() => route.open(["ver-contato", c.id])}
               >
                 <span className="person-avatar">{c.dependent.charAt(0)}</span>
                 <span>
@@ -1135,57 +1333,94 @@ export function Outreach({ user, act, busy, onError }) {
             ))}
           </div>
         ) : (
-          <Empty title="Nenhum caso neste filtro">
-            Os casos resolvidos saem da fila ativa e continuam no histórico.
-          </Empty>
+          <Empty
+            title={
+              list?.status === status
+                ? "Nenhum caso neste filtro"
+                : "Carregando contatos…"
+            }
+          />
         )}
       </Section>
+      {action === "ver-contato" && list?.status === status && !selected && (
+        <Modal title="Contato indisponível" onClose={route.close}>
+          <p>Consulte a lista de contatos ou o histórico.</p>
+        </Modal>
+      )}
       {selected && (
-        <Modal
-          title="Acompanhamento da família"
-          onClose={() => setSelected(null)}
-        >
+        <Modal title="Acompanhamento da família" onClose={route.close}>
           <h3>{selected.dependent}</h3>
           <p className="muted">Responsável: {selected.guardian}</p>
           <p>Contato: {selected.contact || "Não informado"}</p>
           <p className="notice-box">{selected.reason}</p>
-          {user.role === "acs" && status === "aberta" && (
-            <form onSubmit={contact}>
-              <fieldset disabled={busy}>
-                <div className="form-grid">
-                  <Field label="Tipo de contato">
-                    <select name="kind">
-                      <option value="telefone">Telefone</option>
-                      <option value="visita">Visita</option>
-                      <option value="mensagem">Mensagem</option>
-                      <option value="sem_contato">Tentativa sem contato</option>
-                    </select>
+          {user.role === "acs" &&
+            status === "aberta" &&
+            form !== "registrar" && (
+              <button
+                className="primary"
+                onClick={() =>
+                  route.open(["ver-contato", selectedId, "registrar"], {
+                    replace: true,
+                  })
+                }
+              >
+                Registrar contato
+              </button>
+            )}
+          {user.role === "acs" &&
+            status === "aberta" &&
+            form === "registrar" && (
+              <form key={selectedId} onSubmit={contact}>
+                <fieldset disabled={busy}>
+                  <div className="form-grid">
+                    <Field label="Tipo de contato">
+                      <select name="kind">
+                        <option value="telefone">Telefone</option>
+                        <option value="visita">Visita</option>
+                        <option value="mensagem">Mensagem</option>
+                        <option value="sem_contato">
+                          Tentativa sem contato
+                        </option>
+                      </select>
+                    </Field>
+                    <Field
+                      label="Data do contato"
+                      type="date"
+                      name="contactDate"
+                      max={today()}
+                      defaultValue={today()}
+                      required
+                    />
+                  </div>
+                  <Field label="Como foi o contato?">
+                    <textarea
+                      name="note"
+                      minLength={3}
+                      maxLength={500}
+                      rows={3}
+                      required
+                    />
                   </Field>
-                  <Field
-                    label="Data do contato"
-                    type="date"
-                    name="contactDate"
-                    max={today()}
-                    defaultValue={today()}
-                    required
-                  />
-                </div>
-                <Field label="Nota do acompanhamento">
-                  <textarea
-                    name="note"
-                    minLength={3}
-                    maxLength={500}
-                    rows={3}
-                    required
-                  />
-                </Field>
-                <button className="primary" type="submit">
-                  {busy ? "Registrando…" : "Registrar contato"}
-                </button>
-              </fieldset>
-            </form>
-          )}
-          <h3 className="subheading">Histórico de ações</h3>
+                  <div className="button-row">
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={() =>
+                        route.open(["ver-contato", selectedId], {
+                          replace: true,
+                        })
+                      }
+                    >
+                      Cancelar
+                    </button>
+                    <button className="primary" type="submit">
+                      {busy ? "Registrando…" : "Salvar contato"}
+                    </button>
+                  </div>
+                </fieldset>
+              </form>
+            )}
+          <h3 className="subheading">Contatos anteriores</h3>
           {actions.length ? (
             actions.map((a) => (
               <article className="guidance-card" key={a.id}>

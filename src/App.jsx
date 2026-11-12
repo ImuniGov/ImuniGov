@@ -35,12 +35,14 @@ import {
   Privacy,
   Section,
 } from "./components";
-import { formatDate, today } from "./format";
+import { formatDate, today, vaccineLabel } from "./format";
+import { profilePath, profileRoute, useLocation } from "./navigation";
 import {
   UploadForm,
   DocumentReview,
   FamilyHistory,
   Outreach,
+  AgentGuide,
 } from "./Workspaces";
 
 const roles = {
@@ -51,24 +53,22 @@ const roles = {
 const tabs = {
   home: "Visão geral",
   family: "Minha família",
-  schedule: "Próximas doses",
+  schedule: "Calendário de vacinação",
   documents: "Cadernetas",
   history: "Vacinas e orientações",
-  review: "Fila de conferência",
+  review: "Conferir cadernetas",
   outreach: "Contatos com famílias",
   notifications: "Avisos",
   account: "Minha conta",
 };
 
 export default function App() {
-  const [user, setUser] = useState(null),
-    [starting, setStarting] = useState(true),
-    [tab, setTab] = useState(
-      new URLSearchParams(window.location.search).get("view") ===
-        "notifications"
-        ? "notifications"
-        : "home",
-    );
+  const [user, setUser] = useState(null);
+  const [starting, setStarting] = useState(true);
+  const [location, go] = useLocation();
+  const page = user ? profileRoute(user, location) : null;
+  const tab = page?.tab;
+  const allowed = page?.allowed;
   const [people, setPeople] = useState([]),
     [documents, setDocuments] = useState([]),
     [notes, setNotes] = useState([]);
@@ -77,6 +77,7 @@ export default function App() {
     coverage: { valid: true, vaccines: [] },
   });
   const [cases, setCases] = useState([]);
+  const [loadedFor, setLoadedFor] = useState(null);
   const currentUser = useRef(null);
   const changeUser = useCallback((next) => {
     currentUser.current = next;
@@ -85,18 +86,15 @@ export default function App() {
     setDocuments([]);
     setNotes([]);
     setCases([]);
+    setLoadedFor(null);
     setSchedule({ items: [], coverage: { valid: true, vaccines: [] } });
   }, []);
-  const [selected, setSelected] = useState(""),
-    [filter, setFilter] = useState("todos"),
-    [search, setSearch] = useState("");
-  const [modal, setModal] = useState(null),
-    [toast, setToast] = useState(null),
+  const [toast, setToast] = useState(null),
     [busy, setBusy] = useState(false),
     [menu, setMenu] = useState(false);
   const showError = useCallback(
     (err) => setToast({ text: err.message || String(err), error: true }),
-    [],
+    [setToast],
   );
   useEffect(() => {
     let alive = true;
@@ -149,11 +147,7 @@ export default function App() {
     setNotes(result[2].items);
     if (result[3]) setSchedule(result[3]);
     setCases(result[4].items);
-    setSelected((old) =>
-      result[0].items.some((p) => p.id === old)
-        ? old
-        : result[0].items[0]?.id || "",
-    );
+    setLoadedFor(user.id);
   }, [user]);
   useEffect(() => {
     Promise.resolve().then(reload).catch(showError);
@@ -193,22 +187,99 @@ export default function App() {
         setPeople([]);
         setDocuments([]);
         setNotes([]);
-        setTab("home");
+        go("/entrar", { replace: true });
         setMenu(false);
       },
       undefined,
       false,
     );
   }
-  const navigate = (key) => {
-    setTab(key);
+  useEffect(() => {
+    if (user && !allowed) {
+      go(profilePath(user, tab), { replace: true });
+    } else if (
+      !starting &&
+      !user &&
+      location.path === "/" &&
+      !location.query.has("view")
+    ) {
+      go("/entrar", { replace: true });
+    }
+  }, [user, allowed, tab, go, starting, location]);
+
+  const navigate = (key, parts = []) => {
+    go(profilePath(user, key, parts));
     setMenu(false);
-    setSearch("");
-    setFilter("todos");
     document.getElementById("conteudo")?.focus();
     window.scrollTo({ top: 0, behavior: "instant" });
   };
-  const closeModal = useCallback(() => setModal(null), []);
+  const [action, id, step] = page?.parts || [];
+  const selectedId =
+    (action === "pessoa" ? id : page?.query.get("pessoa")) || "";
+  const selected =
+    people.find((p) => p.id === selectedId)?.id ||
+    (action === "pessoa" ? "" : people[0]?.id || "");
+  const search =
+    page?.state?.owner === user?.id ? page?.state?.search || "" : "";
+  function open(
+    parts,
+    { query = page.query, replace = false, state = page.state } = {},
+  ) {
+    go(profilePath(user, tab, parts, query), { replace, state });
+  }
+  const route = page && {
+    ...page,
+    open,
+    search,
+    setFilter(key, value, fallback) {
+      const query = new URLSearchParams(page.query);
+      if (value === fallback) query.delete(key);
+      else query.set(key, value);
+      open([search ? "busca" : query.size ? "filtros" : ""], { query });
+    },
+    setSearch(value) {
+      open([value ? "busca" : page.query.size ? "filtros" : ""], {
+        state: { owner: user.id, search: value },
+        replace: action === "busca",
+      });
+    },
+    close() {
+      open(
+        search
+          ? ["busca"]
+          : tab === "history" && selected
+            ? ["pessoa", selected]
+            : page.query.size
+              ? ["filtros"]
+              : [],
+        { replace: true },
+      );
+    },
+  };
+  const filter = route?.query.get("situacao") || "todos";
+  const follow = (key) => (event) => {
+    if (
+      event.button ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    navigate(key);
+  };
+  const openHistory = (id) => navigate("history", ["pessoa", id]);
+  const upload = (id) => {
+    const query = new URLSearchParams(page.query);
+    if (tab === "history" && selected) query.set("pessoa", selected);
+    open(["enviar-caderneta", id], { query });
+  };
+  const person = people.find((p) => p.id === id);
+  const documentRoute =
+    (tab === "review" && action === "conferir-caderneta") ||
+    (tab === "documents" && action === "ver-caderneta");
+  const currentDocument = documentRoute && documents.find((d) => d.id === id);
   const unread = notes.filter((n) => !n.read).length;
   const pending = documents.filter((d) => d.status === "pendente").length;
   const shown = documents.filter(
@@ -229,6 +300,8 @@ export default function App() {
     return (
       <>
         <Auth
+          location={location}
+          go={go}
           onLogin={(u) => {
             changeUser(u);
             setToast(null);
@@ -278,11 +351,8 @@ export default function App() {
         <aside className={`sidebar ${menu ? "open" : ""}`}>
           <a
             className="brand"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("home");
-            }}
+            href={profilePath(user, "home")}
+            onClick={follow("home")}
           >
             <span className="brand-icon">✳</span>
             <span>
@@ -292,11 +362,12 @@ export default function App() {
           <span className="sidebar-label">ACOMPANHAMENTO</span>
           <nav aria-label="Navegação principal">
             {nav.map(([key, Icon]) => (
-              <button
+              <a
                 key={key}
+                href={profilePath(user, key)}
                 aria-current={tab === key ? "page" : undefined}
                 className={tab === key ? "active" : ""}
-                onClick={() => navigate(key)}
+                onClick={follow(key)}
               >
                 <Icon size={19} />
                 <span>{tabs[key]}</span>
@@ -306,16 +377,18 @@ export default function App() {
                 {key === "review" && pending > 0 && (
                   <b className="nav-count">{pending}</b>
                 )}
-              </button>
+              </a>
             ))}
           </nav>
           <div className="sidebar-bottom">
-            <button
+            <a
+              href={profilePath(user, "account")}
+              aria-current={tab === "account" ? "page" : undefined}
               className={tab === "account" ? "active" : ""}
-              onClick={() => navigate("account")}
+              onClick={follow("account")}
             >
               <Settings size={18} /> Minha conta
-            </button>
+            </a>
             <button onClick={logout} disabled={busy}>
               <LogOut size={18} /> Sair
             </button>
@@ -355,7 +428,7 @@ export default function App() {
           </header>
           <main className="main-content" id="conteudo" tabIndex={-1}>
             {user.role === "familia" && !user.privacy?.current && (
-              <PrivacyConsent onAccepted={changeUser} />
+              <PrivacyConsent onAccepted={changeUser} route={route} />
             )}
 
             <div className="page-intro">
@@ -365,34 +438,19 @@ export default function App() {
                     ? `Olá, ${user.name.split(" ")[0]}.`
                     : tabs[tab]}
                 </h1>
-                <p>
-                  {tab === "home"
-                    ? user.role === "familia"
-                      ? "Veja as próximas datas e os retornos da UBS."
-                      : "Acompanhe os arquivos e os contatos pendentes."
-                    : tab === "review"
-                      ? "Confira o arquivo antes de confirmar cada dose."
-                      : tab === "outreach"
-                        ? "Veja quem precisa de contato e registre o atendimento."
-                        : "Consulte as informações e as ações disponíveis abaixo."}
-                </p>
               </div>
               {user.role === "familia" && ["home", "family"].includes(tab) && (
-                <AddButton onClick={() => setModal({ type: "person" })}>
+                <AddButton onClick={() => route.open(["adicionar-pessoa"])}>
                   Adicionar pessoa
                 </AddButton>
               )}
               {user.role === "familia" && tab === "documents" && (
-                <AddButton onClick={() => setModal({ type: "upload" })}>
-                  Enviar caderneta
-                </AddButton>
+                <AddButton onClick={() => upload()}>Enviar caderneta</AddButton>
               )}
             </div>
             <div className="demo-note">
               <Activity size={16} />
-              <span>
-                Versão de testes • use dados fictícios para demonstração.
-              </span>
+              <span>Versão de testes · use dados fictícios.</span>
             </div>
             {tab === "home" && (
               <>
@@ -406,15 +464,11 @@ export default function App() {
                   <FamilyReturns
                     onlyRefused
                     onError={showError}
-                    resend={(id) => {
-                      setSelected(id);
-                      setModal({ type: "upload" });
-                    }}
+                    resend={upload}
                   />
                 )}
                 <div className="hero-card">
                   <div>
-                    <span className="eyebrow light">PRÓXIMA AÇÃO</span>
                     <h2>
                       {user.role === "familia"
                         ? documents.length
@@ -422,24 +476,19 @@ export default function App() {
                           : "Envie uma caderneta para conferência"
                         : user.role === "ubs"
                           ? "Confira as cadernetas atribuídas a você"
-                          : "Organize os contatos com as famílias"}
+                          : "Fale com as famílias que precisam de acompanhamento"}
                     </h2>
-                    <p>
-                      {user.role === "familia"
-                        ? "Envie a caderneta e acompanhe a conferência pela UBS."
-                        : user.role === "ubs"
-                          ? "Veja os arquivos, confira os dados e oriente a família."
-                          : "Encontre os casos que precisam de contato e registre cada ação."}
-                    </p>
                     <button
                       className="hero-button"
                       onClick={() =>
                         user.role === "familia"
                           ? documents.length
                             ? navigate("documents")
-                            : setModal({
-                                type: people.length ? "upload" : "person",
-                              })
+                            : route.open([
+                                people.length
+                                  ? "enviar-caderneta"
+                                  : "adicionar-pessoa",
+                              ])
                           : navigate(
                               user.role === "ubs" ? "review" : "outreach",
                             )
@@ -451,7 +500,7 @@ export default function App() {
                           : "Enviar minha caderneta"
                         : user.role === "ubs"
                           ? "Abrir fila de conferência"
-                          : "Ver busca ativa"}
+                          : "Ver contatos"}
                       <ArrowRight size={17} />
                     </button>
                   </div>
@@ -466,13 +515,7 @@ export default function App() {
                           CalendarClock,
                           "peach",
                         ],
-                        [
-                          "Famílias acompanhadas",
-                          new Set(cases.map((c) => c.guardian)).size,
-                          Heart,
-                          "blue",
-                        ],
-                        ["Novas notificações", unread, Bell, "lilac"],
+                        ["Novos avisos", unread, Bell, "lilac"],
                       ]
                     : [
                         [
@@ -496,7 +539,7 @@ export default function App() {
                           ClipboardCheck,
                           "blue",
                         ],
-                        ["Novas notificações", unread, Bell, "lilac"],
+                        ["Novos avisos", unread, Bell, "lilac"],
                       ]
                   ).map(([title, count]) => (
                     <div className="stat-card" key={title}>
@@ -505,133 +548,119 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-                <div className="home-grid">
-                  <Section
-                    title={
-                      user.role === "familia"
-                        ? "Sua família"
-                        : "Acompanhamento recente"
-                    }
-                    description="Pessoas e atividades mais recentes"
-                    action={
-                      <button
-                        className="text-link"
-                        onClick={() =>
-                          navigate(
-                            user.role === "familia"
-                              ? "family"
-                              : user.role === "ubs"
-                                ? "review"
-                                : "outreach",
-                          )
-                        }
-                      >
-                        Ver tudo <ArrowRight size={15} />
-                      </button>
-                    }
-                  >
-                    {user.role === "acs" ? (
-                      <Empty title="Nenhum contato pendente">
-                        Abra a busca ativa para consultar os casos da unidade.
-                      </Empty>
-                    ) : people.length ? (
-                      <div className="person-list">
-                        {people.slice(0, 4).map((p) => (
-                          <button
-                            className="person-row"
-                            key={p.id}
-                            onClick={() => {
-                              setSelected(p.id);
-                              navigate("history");
-                            }}
-                          >
-                            <span className="person-avatar">
-                              {p.name.charAt(0)}
-                            </span>
-                            <span>
-                              <strong>{p.name}</strong>
-                              <small>
-                                Nascimento: {formatDate(p.birthDate)}
-                              </small>
-                            </span>
-                            <ChevronRight size={18} />
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <Empty
-                        title={
-                          user.role === "ubs"
-                            ? "Nenhuma caderneta atribuída"
-                            : "Nenhuma pessoa cadastrada"
-                        }
-                        action={
-                          <button
-                            className="text-link"
-                            onClick={() =>
+                {user.role === "acs" ? (
+                  <AgentGuide />
+                ) : (
+                  <div className="home-grid">
+                    <Section
+                      title={
+                        user.role === "familia"
+                          ? "Sua família"
+                          : "Acompanhamento recente"
+                      }
+                      action={
+                        <button
+                          className="text-link"
+                          onClick={() =>
+                            navigate(
                               user.role === "familia"
-                                ? setModal({ type: "person" })
-                                : navigate("review")
-                            }
-                          >
-                            {user.role === "familia"
-                              ? "Cadastrar primeira pessoa"
-                              : "Ver minha fila"}{" "}
-                            <ArrowRight size={15} />
-                          </button>
-                        }
-                      >
-                        {user.role === "familia"
-                          ? "Adicione você ou um dependente para começar."
-                          : "A atribuição depende do cadastro profissional verificado e de uma equipe geograficamente compatível."}
-                      </Empty>
-                    )}
-                  </Section>
-                  <Section title="Como funciona" className="how-it-works">
-                    {[
-                      [
-                        "01",
-                        "Envie a caderneta",
-                        "Foto nítida ou PDF vinculado à pessoa certa.",
-                      ],
-                      [
-                        "02",
-                        "A equipe confere",
-                        "Três profissionais conferem o arquivo e depois cada dose.",
-                      ],
-                      [
-                        "03",
-                        "Veja o retorno da UBS",
-                        "Veja os registros, os motivos de recusa e o que fazer.",
-                      ],
-                    ].map(([n, title, text]) => (
-                      <div className="step-row" key={n}>
-                        <b>{n}</b>
-                        <div>
-                          <strong>{title}</strong>
-                          <p>{text}</p>
+                                ? "family"
+                                : user.role === "ubs"
+                                  ? "review"
+                                  : "outreach",
+                            )
+                          }
+                        >
+                          Ver tudo <ArrowRight size={15} />
+                        </button>
+                      }
+                    >
+                      {people.length ? (
+                        <div className="person-list">
+                          {people.slice(0, 4).map((p) => (
+                            <button
+                              className="person-row"
+                              key={p.id}
+                              onClick={() => openHistory(p.id)}
+                            >
+                              <span className="person-avatar">
+                                {p.name.charAt(0)}
+                              </span>
+                              <span>
+                                <strong>{p.name}</strong>
+                                <small>
+                                  Nascimento: {formatDate(p.birthDate)}
+                                </small>
+                              </span>
+                              <ChevronRight size={18} />
+                            </button>
+                          ))}
                         </div>
-                      </div>
-                    ))}
-                  </Section>
-                </div>
+                      ) : (
+                        <Empty
+                          title={
+                            user.role === "ubs"
+                              ? "Nenhuma caderneta atribuída"
+                              : "Nenhuma pessoa cadastrada"
+                          }
+                          action={
+                            <button
+                              className="text-link"
+                              onClick={() =>
+                                user.role === "familia"
+                                  ? route.open(["adicionar-pessoa"])
+                                  : navigate("review")
+                              }
+                            >
+                              {user.role === "familia"
+                                ? "Cadastrar primeira pessoa"
+                                : "Ver minha fila"}{" "}
+                              <ArrowRight size={15} />
+                            </button>
+                          }
+                        >
+                          {user.role === "familia"
+                            ? "Adicione você ou um dependente para começar."
+                            : "A atribuição depende do cadastro profissional verificado e de uma equipe geograficamente compatível."}
+                        </Empty>
+                      )}
+                    </Section>
+                    <Section
+                      title={
+                        user.role === "ubs" ? "Como conferir" : "Como funciona"
+                      }
+                    >
+                      <ol className="task-list">
+                        {(user.role === "ubs"
+                          ? [
+                              "Abra uma caderneta da sua fila.",
+                              "Confira o arquivo e registre sua decisão.",
+                              "Revise as doses e oriente a família.",
+                            ]
+                          : [
+                              "Envie uma foto ou PDF da caderneta.",
+                              "Três profissionais conferem o arquivo e as doses.",
+                              "Veja o retorno da unidade de saúde.",
+                            ]
+                        ).map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ol>
+                    </Section>
+                  </div>
+                )}
               </>
             )}
             {tab === "schedule" && user.role === "familia" && (
               <FamilySchedule
                 schedule={schedule}
                 people={people}
-                openHistory={(id) => {
-                  setSelected(id);
-                  navigate("history");
-                }}
+                openHistory={openHistory}
+                route={route}
               />
             )}
             {tab === "family" && (
-              <Section
-                title="Pessoas que você acompanha"
-                description="Cadastre somente os dados necessários para o cuidado."
-              >
+              <Section title="Pessoas cadastradas">
                 {people.length ? (
                   <div className="family-grid">
                     {people.map((p) => (
@@ -644,24 +673,19 @@ export default function App() {
                         <small>
                           {p.document_count} arquivo(s) enviado(s) •{" "}
                           {p.representationVerified
-                            ? "Representação verificada documentalmente"
-                            : "Representação declarada"}
+                            ? "Responsável verificado"
+                            : "Responsável informado"}
                         </small>
                         <div className="button-row">
                           <button
                             className="secondary"
-                            onClick={() => {
-                              setSelected(p.id);
-                              navigate("history");
-                            }}
+                            onClick={() => openHistory(p.id)}
                           >
                             Acompanhar <ArrowRight size={15} />
                           </button>
                           <button
                             className="text-link"
-                            onClick={() =>
-                              setModal({ type: "person", person: p })
-                            }
+                            onClick={() => route.open(["editar-pessoa", p.id])}
                           >
                             Editar
                           </button>
@@ -696,7 +720,9 @@ export default function App() {
                       <button
                         key={key}
                         className={filter === key ? "selected" : ""}
-                        onClick={() => setFilter(key)}
+                        onClick={() =>
+                          route.setFilter("situacao", key, "todos")
+                        }
                       >
                         {label}
                       </button>
@@ -708,13 +734,13 @@ export default function App() {
                       aria-label="Buscar arquivos"
                       placeholder="Buscar pessoa ou arquivo"
                       value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+                      onChange={(e) => route.setSearch(e.target.value)}
                     />
                   </label>
                 </div>
                 {shown.length ? (
-                  <div className="table-wrap">
-                    <table>
+                  <div className="table-wrap document-table">
+                    <table role="table" aria-label="Cadernetas">
                       <thead>
                         <tr>
                           <th scope="col">ARQUIVO / PESSOA</th>
@@ -724,10 +750,10 @@ export default function App() {
                           <th scope="col">AÇÕES</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody role="rowgroup">
                         {shown.map((d) => (
-                          <tr key={d.id}>
-                            <td>
+                          <tr role="row" key={d.id}>
+                            <td role="cell">
                               <div className="file-cell">
                                 <span className="file-icon">
                                   <FileText size={21} />
@@ -738,16 +764,26 @@ export default function App() {
                                 </span>
                               </div>
                             </td>
-                            <td>{d.vaccine}</td>
-                            <td>{formatDate(d.createdAt)}</td>
-                            <td>
+                            <td role="cell" data-label="Vacina">
+                              {vaccineLabel(d.vaccine)}
+                            </td>
+                            <td role="cell" data-label="Envio">
+                              {formatDate(d.createdAt)}
+                            </td>
+                            <td role="cell">
                               <Badge status={d.status} />
                             </td>
-                            <td>
+                            <td role="cell">
                               <button
                                 className="text-link"
                                 onClick={() =>
-                                  setModal({ type: "document", document: d })
+                                  route.open([
+                                    user.role === "ubs"
+                                      ? "conferir-caderneta"
+                                      : "ver-caderneta",
+                                    d.id,
+                                    user.role === "ubs" ? "arquivo" : "",
+                                  ])
                                 }
                               >
                                 {user.role === "ubs" ? "Conferir" : "Detalhes"}
@@ -778,14 +814,12 @@ export default function App() {
             )}
             {tab === "history" && (
               <FamilyHistory
-                resend={(id) => {
-                  setSelected(id);
-                  setModal({ type: "upload" });
-                }}
+                resend={upload}
                 key={selected}
                 people={people}
                 selected={selected}
-                onSelect={setSelected}
+                onSelect={openHistory}
+                route={route}
                 user={user}
                 act={act}
                 busy={busy}
@@ -793,13 +827,16 @@ export default function App() {
               />
             )}
             {tab === "outreach" && (
-              <Outreach user={user} act={act} busy={busy} onError={showError} />
+              <Outreach
+                route={route}
+                user={user}
+                act={act}
+                busy={busy}
+                onError={showError}
+              />
             )}
             {tab === "notifications" && (
-              <Section
-                title="Novidades do acompanhamento"
-                description="Avisos sobre conferências, orientações e possíveis pendências."
-              >
+              <Section title="Seus avisos">
                 {notes.length ? (
                   <div className="notification-list">
                     {notes.map((n) => (
@@ -842,10 +879,7 @@ export default function App() {
               </Section>
             )}
             {tab === "account" && (
-              <Section
-                title="Seu acesso"
-                description="Informações da sua conta e privacidade."
-              >
+              <Section title="Seus dados">
                 <dl className="account-details">
                   <dt>Nome</dt>
                   <dd>{user.name}</dd>
@@ -855,6 +889,7 @@ export default function App() {
                   <dd>{roles[user.role]}</dd>
                 </dl>
                 <PrivacyRights
+                  route={route}
                   act={act}
                   busy={busy}
                   onError={showError}
@@ -867,7 +902,7 @@ export default function App() {
                 <div className="button-row">
                   <button
                     className="secondary"
-                    onClick={() => setModal({ type: "privacy" })}
+                    onClick={() => route.open(["privacidade"])}
                   >
                     Ler aviso de privacidade
                   </button>
@@ -909,7 +944,7 @@ export default function App() {
               />
             )}
             <footer className="page-footer">
-              <span>ImuniGuia • Informação que aproxima o cuidado</span>
+              <span>ImuniGuia</span>
               <span>
                 <ShieldCheck size={14} /> Acesso protegido
               </span>
@@ -937,16 +972,17 @@ export default function App() {
                   ["notifications", Bell],
                 ]
           ).map(([key, Icon]) => (
-            <button
+            <a
               key={key}
+              href={profilePath(user, key)}
               aria-current={tab === key ? "page" : undefined}
               className={tab === key ? "active" : ""}
-              onClick={() => navigate(key)}
+              onClick={follow(key)}
             >
               <Icon size={21} />
               <span>
                 {key === "schedule"
-                  ? "Próximas doses"
+                  ? "Calendário"
                   : key === "documents"
                     ? "Cadernetas"
                     : key === "review"
@@ -957,7 +993,7 @@ export default function App() {
                           ? "Início"
                           : tabs[key]}
               </span>
-            </button>
+            </a>
           ))}
         </nav>
         {toast && (
@@ -972,34 +1008,51 @@ export default function App() {
             </button>
           </div>
         )}
-        {modal?.type === "person" && (
-          <PersonForm
-            person={modal.person}
-            onClose={closeModal}
-            act={act}
-            busy={busy}
-          />
+        {user.role === "familia" &&
+          ["home", "family"].includes(tab) &&
+          (action === "adicionar-pessoa" ||
+            (action === "editar-pessoa" && person)) && (
+            <PersonForm
+              key={id || action}
+              person={action === "editar-pessoa" ? person : null}
+              onClose={route.close}
+              act={act}
+              busy={busy}
+            />
+          )}
+        {user.role === "familia" &&
+          ["home", "documents", "history"].includes(tab) &&
+          action === "enviar-caderneta" && (
+            <UploadForm
+              people={people}
+              selected={person?.id || selected}
+              onClose={route.close}
+              act={act}
+              busy={busy}
+            />
+          )}
+        {documentRoute && !currentDocument && loadedFor === user.id && (
+          <Modal title="Caderneta indisponível" onClose={route.close}>
+            <p>Confira se a caderneta aparece na sua lista.</p>
+          </Modal>
         )}
-        {modal?.type === "upload" && (
-          <UploadForm
-            people={people}
-            selected={selected}
-            onClose={closeModal}
-            act={act}
-            busy={busy}
-          />
-        )}
-        {modal?.type === "document" && (
+        {currentDocument && (
           <DocumentReview
-            document={modal.document}
+            key={id}
+            document={currentDocument}
             user={user}
-            onClose={closeModal}
+            step={step}
+            route={route}
+            onStep={(next) => route.open([action, id, next], { replace: true })}
+            onClose={route.close}
             act={act}
             busy={busy}
             onError={showError}
           />
         )}
-        {modal?.type === "privacy" && <Privacy onClose={closeModal} />}
+        {tab === "account" && action === "privacidade" && (
+          <Privacy onClose={route.close} />
+        )}
       </div>
     </FeedbackContext.Provider>
   );

@@ -19,8 +19,8 @@ export const labels = {
   aprovado: "Arquivo conferido",
   rejeitado: "Devolvido para ajuste",
   a_conferir: "A conferir",
-  validado: "Registro confirmado",
-  recusado: "Registro recusado",
+  validado: "Dose confirmada",
+  recusado: "Registro de dose recusado",
   aberta: "Possível pendência",
   resolvida: "Resolvida",
   queued: "Na fila de leitura",
@@ -36,3 +36,17 @@ export const formatDate = (value) =>
       }).format(new Date(value.length === 10 ? value + "T12:00:00Z" : value))
     : "Não informada";
 export const today = () => new Date().toLocaleDateString("en-CA");
+
+const familiarNames = {
+  "poliomielite vip": "Paralisia infantil (VIP)",
+  poliomielite: "Paralisia infantil (poliomielite)",
+  "tríplice viral": "Sarampo, caxumba e rubéola (tríplice viral)",
+  varicela: "Catapora (varicela)",
+  "rotavírus humano": "Rotavírus",
+  dtp: "Difteria, tétano e coqueluche (DTP)",
+};
+
+export function vaccineLabel(name) {
+  const key = name?.trim().toLowerCase();
+  return Object.hasOwn(familiarNames, key) ? familiarNames[key] : name;
+}

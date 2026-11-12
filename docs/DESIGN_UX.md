@@ -61,3 +61,11 @@ Nomes de vacinas, siglas oficiais e números de doses não são substituídos po
 ## Validação e limites
 
 Lint, formatação, build e testes funcionais são registrados em KANBAN.md. A revisão visual inclui desktop e mobile; capturas desta sessão usam dados fictícios. Ainda são necessários testes moderados com cidadãos, UBS e ACS, aparelhos Android/iOS reais e avaliação completa por teclado/leitor de tela. Não há certificação de acessibilidade, pesquisa com usuários reais nem validação clínica integral nesta etapa.
+
+## Navegação e telas móveis — 2026-11-11
+
+- URLs autenticadas seguem `/tipo-de-perfil/nome-do-perfil/tela/acao`. Use segmentos adicionais para o identificador da caderneta, pessoa ou contato e para a etapa. Exemplo sintético: `/ubs/ana-souza/fila-de-conferencia/conferir-caderneta/<id>/doses`.
+- O segmento `/busca` identifica a tela filtrada. O texto digitado fica no histórico da aba, vinculado à conta, fora da URL. Os filtros de situação e data ficam na URL e links antigos de avisos continuam funcionando. A API continua verificando o acesso aos dados.
+- O calendário abre no mês atual, destaca os dias com doses e permite consultar toda a família, uma pessoa ou todas as datas. Datas que já passaram têm atalho e orientação para conferência.
+- A UBS percorre Arquivo, Decisão, Doses e Histórico. Motivo e orientação aparecem conforme a decisão. A aprovação do arquivo e a confirmação de cada dose continuam sendo ações distintas.
+- A tela do ACS explica a fila, a prioridade, as opções de contato e o registro de tentativas. A fila de cadernetas tem cartões em telas estreitas.

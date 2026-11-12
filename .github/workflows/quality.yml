@@ -19,6 +19,7 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run test:pwa
+      - run: npm run test:routes
       - run: npm run build
   backend:
     runs-on: ubuntu-latest

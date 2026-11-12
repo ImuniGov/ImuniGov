@@ -8,9 +8,10 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "test:routes": "node --test tests/navigation.test.mjs",
     "test:pwa": "node --test tests/pwa.test.mjs",
-    "format": "prettier --write src public/sw.js public/offline.css tests/pwa.test.mjs",
-    "format:check": "prettier --check src public/sw.js public/offline.css tests/pwa.test.mjs"
+    "format": "prettier --write src public/sw.js public/offline.css tests/*.test.mjs",
+    "format:check": "prettier --check src public/sw.js public/offline.css tests/*.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.63.0",

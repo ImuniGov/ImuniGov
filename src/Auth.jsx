@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, ShieldCheck, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { api, setCsrf } from "./api";
 import { Field, Privacy } from "./components";
 
-export default function Auth({ onLogin }) {
-  const [register, setRegister] = useState(false),
-    [privacy, setPrivacy] = useState(false);
+export default function Auth({ onLogin, location, go }) {
+  const register = location.path.startsWith("/criar-conta");
+  const base = register ? "/criar-conta" : "/entrar";
+  const privacy = location.path === base + "/privacidade";
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -56,31 +57,16 @@ export default function Auth({ onLogin }) {
           </span>
         </a>
         <div className="story-copy">
-          <span className="eyebrow light">ACOMPANHAMENTO DA VACINAÇÃO</span>
-          <h1>A caderneta da família, organizada.</h1>
+          <h1>Vacinas da família em dia</h1>
           <p>
-            Envie uma foto ou PDF. A equipe da UBS confere as informações e
-            orienta os próximos passos.
+            Envie a caderneta, veja as próximas doses e acompanhe os retornos da
+            unidade de saúde.
           </p>
-          <div className="story-pills">
-            <span>
-              <Check size={16} /> Acompanhamento da família
-            </span>
-            <span>
-              <Check size={16} /> Conferência pela equipe de saúde
-            </span>
-          </div>
         </div>
       </div>
       <main className="auth-main">
         <div className="auth-card">
-          <span className="eyebrow">IMUNIGUIA</span>
-          <h2>{register ? "Criar conta de família" : "Entrar no ImuniGuia"}</h2>
-          <p className="muted">
-            {register
-              ? "Crie sua conta de família para começar o acompanhamento."
-              : "Acesse as cadernetas, as próximas doses e os retornos da UBS."}
-          </p>
+          <h2>{register ? "Criar conta de família" : "Entrar"}</h2>
           <form onSubmit={submit}>
             <fieldset disabled={busy}>
               {register && (
@@ -120,7 +106,7 @@ export default function Auth({ onLogin }) {
                     <button
                       type="button"
                       className="inline-link"
-                      onClick={() => setPrivacy(true)}
+                      onClick={() => go(base + "/privacidade")}
                     >
                       Ler os termos de uso e o aviso de privacidade
                     </button>
@@ -178,29 +164,28 @@ export default function Auth({ onLogin }) {
             <button
               className="inline-link"
               onClick={() => {
-                setRegister(!register);
+                go(register ? "/entrar" : "/criar-conta");
                 setError("");
               }}
             >
               {register ? "Entrar" : "Criar conta de família"}
             </button>
           </p>
-          <div className="auth-trust">
-            <ShieldCheck size={18} />
-            <span>Seu acesso é privado e protegido.</span>
-          </div>
           <p className="small muted">
             Equipe de saúde: solicite sua conta ao administrador da unidade.
           </p>
         </div>
         <footer>
-          ImuniGuia • Cuidado em cada etapa{" "}
-          <button className="inline-link" onClick={() => setPrivacy(true)}>
+          ImuniGuia{" "}
+          <button
+            className="inline-link"
+            onClick={() => go(base + "/privacidade")}
+          >
             Privacidade
           </button>
         </footer>
       </main>
-      {privacy && <Privacy onClose={() => setPrivacy(false)} />}
+      {privacy && <Privacy onClose={() => go(base, { replace: true })} />}
     </div>
   );
 }

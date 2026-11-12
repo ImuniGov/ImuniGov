@@ -20,6 +20,7 @@ Atualizado: 2026-11-11 (America/Cuiaba). Entrega em `homologacao`. O usuário es
 | M7 — acompanhamento (#11, #43, #44) | Agenda familiar, avisos, push opt-in, mobile/PWA | Aparelhos reais, HTTPS externo e entrega push externa. |
 | M8 — qualidade e operação (#24–#26, #49) | Testes automatizados (51 SQLite + 4 PWA locais; 3 OCR exigem Docker/CI), Docker, CI e guias operacionais | Hospedagem HTTPS pública quando definida. |
 | M9 — revisão independente e experiência (#45–#48) | Trio sorteado, impedimento pós-voto (`K18.2`), RNDS público, termos/execução LGPD, retorno à família e UI revisada com semântica ARIA | Testes moderados com cidadãos/UBS/ACS em aparelhos reais. |
+| M10 — navegação e telas móveis (K21.1, #43–#45, #48) | URLs por perfil, calendário mensal da família, conferência por etapas e guia de contatos do ACS | Validar com usuários e aparelhos físicos na homologação. |
 
 ## Prioridades antes de dados reais
 

@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { api, send } from "./api";
 import { Privacy } from "./components";
 
-export default function PrivacyConsent({ onAccepted }) {
-  const [notice, setNotice] = useState(null),
-    [reading, setReading] = useState(false);
+export default function PrivacyConsent({ onAccepted, route }) {
+  const [notice, setNotice] = useState(null);
+  const reading = route.parts[0] === "termos-de-uso";
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
@@ -41,12 +41,14 @@ export default function PrivacyConsent({ onAccepted }) {
     <section className="notice-box" aria-labelledby="consent-heading">
       <h2 id="consent-heading">O acompanhamento digital está pausado</h2>
       <p>
-        Para iniciar ou retomar, leia a versão atual dos termos e autorize o uso
-        dos dados de saúde. Você pode continuar consultando e exportando suas
-        informações e fazer solicitações na área Minha conta. O atendimento pelo
-        SUS não depende deste aceite.
+        Para retomar, aceite os termos atuais e autorize o uso dos dados de
+        saúde. Seus dados e pedidos continuam em Minha conta. O atendimento pelo
+        SUS independe desta autorização.
       </p>
-      <button className="text-link" onClick={() => setReading(true)}>
+      <button
+        className="text-link"
+        onClick={() => route.open(["termos-de-uso"])}
+      >
         Ler termos e aviso de privacidade
       </button>
       <form onSubmit={submit}>
@@ -82,7 +84,7 @@ export default function PrivacyConsent({ onAccepted }) {
           </button>
         </fieldset>
       </form>
-      {reading && <Privacy onClose={() => setReading(false)} />}
+      {reading && <Privacy onClose={route.close} />}
     </section>
   );
 }
