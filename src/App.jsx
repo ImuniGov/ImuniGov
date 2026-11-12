@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity,
   CalendarClock,
   ArrowRight,
   Bell,
@@ -448,10 +447,7 @@ export default function App() {
                 <AddButton onClick={() => upload()}>Enviar caderneta</AddButton>
               )}
             </div>
-            <div className="demo-note">
-              <Activity size={16} />
-              <span>Versão de testes · use dados fictícios.</span>
-            </div>
+            <p className="demo-note">Demonstração · use dados fictícios</p>
             {tab === "home" && (
               <>
                 {user.role === "familia" && (
@@ -471,12 +467,10 @@ export default function App() {
                   <div>
                     <h2>
                       {user.role === "familia"
-                        ? documents.length
-                          ? "Acompanhe as cadernetas enviadas"
-                          : "Envie uma caderneta para conferência"
+                        ? "Cadernetas"
                         : user.role === "ubs"
-                          ? "Confira as cadernetas atribuídas a você"
-                          : "Fale com as famílias que precisam de acompanhamento"}
+                          ? "Fila de conferência"
+                          : "Contatos com famílias"}
                     </h2>
                     <button
                       className="hero-button"
@@ -496,58 +490,58 @@ export default function App() {
                     >
                       {user.role === "familia"
                         ? documents.length
-                          ? "Ver minhas cadernetas"
-                          : "Enviar minha caderneta"
+                          ? "Ver cadernetas"
+                          : people.length
+                            ? "Enviar caderneta"
+                            : "Cadastrar pessoa"
                         : user.role === "ubs"
-                          ? "Abrir fila de conferência"
+                          ? "Abrir fila"
                           : "Ver contatos"}
                       <ArrowRight size={17} />
                     </button>
                   </div>
                 </div>
-                <div className="stats-grid">
-                  {(user.role === "acs"
-                    ? [
-                        ["Casos ativos", cases.length, Users, "mint"],
-                        [
-                          "Alta prioridade",
-                          cases.filter((c) => c.priority === "alta").length,
-                          CalendarClock,
-                          "peach",
-                        ],
-                        ["Novos avisos", unread, Bell, "lilac"],
-                      ]
-                    : [
-                        [
-                          user.role === "familia"
-                            ? "Pessoas acompanhadas"
-                            : "Pessoas atribuídas à sua equipe",
-                          people.length,
-                          Users,
-                          "mint",
-                        ],
-                        [
-                          "Arquivos aguardando conferência",
-                          pending,
-                          FileText,
-                          "peach",
-                        ],
-                        [
-                          "Arquivos conferidos",
-                          documents.filter((d) => d.status === "aprovado")
-                            .length,
-                          ClipboardCheck,
-                          "blue",
-                        ],
-                        ["Novos avisos", unread, Bell, "lilac"],
-                      ]
-                  ).map(([title, count]) => (
-                    <div className="stat-card" key={title}>
-                      <span>{title}</span>
-                      <strong>{count}</strong>
-                    </div>
-                  ))}
-                </div>
+                <details className="secondary-panel">
+                  <summary>Resumo</summary>
+                  <div className="stats-grid">
+                    {(user.role === "acs"
+                      ? [
+                          ["Casos ativos", cases.length, Users, "mint"],
+                          [
+                            "Alta prioridade",
+                            cases.filter((c) => c.priority === "alta").length,
+                            CalendarClock,
+                            "peach",
+                          ],
+                          ["Novos avisos", unread, Bell, "lilac"],
+                        ]
+                      : [
+                          [
+                            user.role === "familia"
+                              ? "Pessoas"
+                              : "Pessoas na fila",
+                            people.length,
+                            Users,
+                            "mint",
+                          ],
+                          ["Aguardando", pending, FileText, "peach"],
+                          [
+                            "Conferidos",
+                            documents.filter((d) => d.status === "aprovado")
+                              .length,
+                            ClipboardCheck,
+                            "blue",
+                          ],
+                          ["Novos avisos", unread, Bell, "lilac"],
+                        ]
+                    ).map(([title, count]) => (
+                      <div className="stat-card" key={title}>
+                        <span>{title}</span>
+                        <strong>{count}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </details>
                 {user.role === "acs" ? (
                   <AgentGuide />
                 ) : (
@@ -556,7 +550,7 @@ export default function App() {
                       title={
                         user.role === "familia"
                           ? "Sua família"
-                          : "Acompanhamento recente"
+                          : "Pessoas na fila"
                       }
                       action={
                         <button
@@ -588,9 +582,6 @@ export default function App() {
                               </span>
                               <span>
                                 <strong>{p.name}</strong>
-                                <small>
-                                  Nascimento: {formatDate(p.birthDate)}
-                                </small>
                               </span>
                               <ChevronRight size={18} />
                             </button>
@@ -618,35 +609,32 @@ export default function App() {
                               <ArrowRight size={15} />
                             </button>
                           }
-                        >
-                          {user.role === "familia"
-                            ? "Adicione você ou um dependente para começar."
-                            : "A atribuição depende do cadastro profissional verificado e de uma equipe geograficamente compatível."}
-                        </Empty>
+                        />
                       )}
                     </Section>
-                    <Section
-                      title={
-                        user.role === "ubs" ? "Como conferir" : "Como funciona"
-                      }
-                    >
+                    <details className="secondary-panel">
+                      <summary>
+                        {user.role === "ubs"
+                          ? "Como conferir"
+                          : "Como funciona"}
+                      </summary>
                       <ol className="task-list">
                         {(user.role === "ubs"
                           ? [
-                              "Abra uma caderneta da sua fila.",
-                              "Confira o arquivo e registre sua decisão.",
-                              "Revise as doses e oriente a família.",
+                              "Abra uma caderneta da fila.",
+                              "Registre sua decisão sobre o arquivo.",
+                              "Confira as doses.",
                             ]
                           : [
-                              "Envie uma foto ou PDF da caderneta.",
+                              "Envie uma foto ou PDF.",
                               "Três profissionais conferem o arquivo e as doses.",
-                              "Veja o retorno da unidade de saúde.",
+                              "Acompanhe o retorno da unidade.",
                             ]
                         ).map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ol>
-                    </Section>
+                    </details>
                   </div>
                 )}
               </>
@@ -707,32 +695,27 @@ export default function App() {
                     ? "Arquivos para conferência"
                     : "Cadernetas enviadas"
                 }
-                description="O arquivo e cada dose passam por conferências separadas."
+                className="document-panel"
               >
                 <div className="table-toolbar">
-                  <div className="filters">
-                    {[
-                      ["todos", "Todos"],
-                      ["pendente", "Aguardando"],
-                      ["aprovado", "Conferidos"],
-                      ["rejeitado", "Devolvidos"],
-                    ].map(([key, label]) => (
-                      <button
-                        key={key}
-                        className={filter === key ? "selected" : ""}
-                        onClick={() =>
-                          route.setFilter("situacao", key, "todos")
-                        }
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <Field label="Situação">
+                    <select
+                      value={filter}
+                      onChange={(e) =>
+                        route.setFilter("situacao", e.target.value, "todos")
+                      }
+                    >
+                      <option value="todos">Todas</option>
+                      <option value="pendente">Aguardando</option>
+                      <option value="aprovado">Conferidas</option>
+                      <option value="rejeitado">Devolvidas</option>
+                    </select>
+                  </Field>
                   <label className="search">
                     <Search size={17} />
                     <input
                       aria-label="Buscar arquivos"
-                      placeholder="Buscar pessoa ou arquivo"
+                      placeholder="Buscar arquivo"
                       value={search}
                       onChange={(e) => route.setSearch(e.target.value)}
                     />
@@ -936,7 +919,17 @@ export default function App() {
                 </p>
               </Section>
             )}
-            {["home", "account"].includes(tab) && (
+            {tab === "home" && (
+              <details className="secondary-panel">
+                <summary>Instalar e receber avisos</summary>
+                <PwaPanel
+                  family={user.role === "familia"}
+                  act={act}
+                  busy={busy}
+                />
+              </details>
+            )}
+            {tab === "account" && (
               <PwaPanel
                 family={user.role === "familia"}
                 act={act}

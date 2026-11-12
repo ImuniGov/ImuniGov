@@ -4,6 +4,8 @@ Atualizado: 2026-11-11 (America/Cuiaba). Branch: **homologacao**. **Desenvolvime
 
 ## Execução ativa — 2026-11-11
 
+- **K21.2 · #48 e #43 (Em revisão em 2026-11-11):** Segunda revisão mobile após avaliação dos prints. Responsável: mantenedor com Codex. Usa os fluxos e slugs de K21.1. Critérios: menos texto inicial, espaço entre ações, filtros e formulários legíveis a 320/390 px e validação de Família, UBS e ACS no Chrome. Resumo e ajuda recolhíveis, filtros enxutos, etapas da UBS com menos texto. Evidência: lint, formatação, build e 7 testes de rotas/PWA aprovados; Chrome em 320 e 390 px validou os três logins, filtros, etapas e formulários. Capturas sintéticas comparadas. Próximo passo: avaliação do usuário e teste em aparelhos físicos. Sincronização com Issues e Projects pendente.
+
 - **K21.1 · #48, #43, #44 e #45 (Em revisão em 2026-11-11):** Revisar navegação, linguagem e telas móveis de Família, UBS e ACS. Responsável: mantenedor com Codex. Depende das permissões e dados existentes de cada perfil. Critérios: URLs diretas e histórico de navegação; calendário por mês e pessoa; conferência guiada com validação e decisões separadas; explicação do fluxo do ACS; testes de frontend e navegador. Implementados slugs por perfil, busca local ao histórico, calendário mensal, etapas da UBS e orientação do ACS. Evidência: lint, formatação e build aprovados, 3 testes de rotas, 4 PWA e 51 Python aprovados (3 OCR pulados). Chrome com dados sintéticos a 320/390px validou login, histórico do navegador, links diretos, pesquisa, calendário, voto UBS e registro de contato ACS. Próximo passo: revisão em aparelhos físicos. Issues relacionadas e GitHub Projects: sincronização remota pendente.
 
 - **K02 · #19 (Concluído em 2026-11-11):** Diagrama Entidade-Relacionamento (DER), dicionário de tabelas, restrições de imutabilidade e decisões de modelagem documentados em [`docs/MODELAGEM_DADOS.md`](docs/MODELAGEM_DADOS.md) e referenciados no `README.md` e `docs/OPERACAO.md`.
@@ -79,6 +81,8 @@ CI do estado salvo em **92f75f9**: [execução 42558280959](https://github.com/I
 | 2026-11-11 | K02.1 (#49), K18.2 (#45), K19/K07 (#5/#32/#33/#46), K05/K20 (#22/#47) e K21 (#48) implementados e em revisão | Restauração compatível com `review_gate` e esquema `012`; fluxo pós-voto completo com suspensão e nova rodada independente; 23 regras PNI + parser ampliado; comandos LGPD (`verify-representation`, `execute-deletion`, `security-incident`) e melhorias ARIA. 51 testes SQLite aprovados (3 OCR pulados sem motores locais) + 4 PWA aprovados. |
 
 | 2026-11-11 | K21.1 (#43–#45, #48) em revisão | Calendário mensal, rotas por perfil, revisão em etapas e fluxo ACS testados no Chrome com dados fictícios; testes locais aprovados. |
+
+| 2026-11-11 | K21.2 (#43, #48) em revisão | Segunda revisão mobile após os prints: menos texto no primeiro acesso, ações com mais espaço e filtros curtos. Chrome 320/390 px e testes de frontend aprovados. |
 
 <details>
 <summary>Histórico do quadro anterior — estados abaixo substituídos pela auditoria acima</summary>

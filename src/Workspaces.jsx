@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, FileUp, RefreshCw, X } from "lucide-react";
+import { Camera, ChevronRight, FileUp, RefreshCw, X } from "lucide-react";
 import { api, send } from "./api";
 import DosePlans from "./DosePlans";
 import FamilyReturns from "./FamilyReturns";
@@ -70,9 +70,6 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
       ) : (
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
-            <p className="muted">
-              Tire uma foto nítida da caderneta ou envie um PDF.
-            </p>
             <Field label="De quem é a caderneta?">
               <select name="dependentId" defaultValue={selected} required>
                 {people.map((p) => (
@@ -117,7 +114,7 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
               }}
             >
               <FileUp size={30} />
-              <strong>Escolha um arquivo ou arraste até aqui</strong>
+              <strong>Foto ou PDF</strong>
               <span>
                 JPG, PNG, WEBP ou PDF • até 10 MB • PDF com até 10 páginas
               </span>
@@ -171,9 +168,6 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
                 {error}
               </p>
             )}
-            <p className="small muted">
-              A equipe confere a caderneta e confirma as doses.
-            </p>
             <div className="modal-actions">
               <button type="button" className="secondary" onClick={onClose}>
                 Cancelar
@@ -232,7 +226,7 @@ function ReviewDecision({ options, onSubmit, busy, record = false }) {
             >
               <textarea
                 name="note"
-                rows={3}
+                rows={2}
                 required={record || refused}
                 minLength={3}
                 maxLength={300}
@@ -409,12 +403,7 @@ export function DocumentReview({
       onClose={onClose}
     >
       <div className="review-summary">
-        <div>
-          <strong>{current.dependent}</strong>
-          <p>
-            {current.fileName} • {formatDate(current.createdAt)}
-          </p>
-        </div>
+        <strong>{current.dependent}</strong>
         <Badge status={current.status} />
       </div>
       {guided && (
@@ -442,7 +431,12 @@ export function DocumentReview({
         </h3>
       )}
       <div hidden={guided && activeStep !== 0}>
-        <OpenFile document={current} />
+        <div className="review-file">
+          <small>
+            {current.fileName} · {formatDate(current.createdAt)}
+          </small>
+          <OpenFile document={current} />
+        </div>
         {current.contentType.startsWith("image/") ? (
           <img
             className="evidence-image"
@@ -469,7 +463,7 @@ export function DocumentReview({
           <div className="processing-box">
             <div>
               <Badge status={job.status} />
-              <small>{job.attempts} tentativa(s)</small>
+              {job.attempts > 0 && <small>Tentativas: {job.attempts}</small>}
             </div>
             {job.error && <p>{job.error}</p>}
             {user.role === "ubs" &&
@@ -496,25 +490,23 @@ export function DocumentReview({
       </div>
       {onHold && (
         <p className="form-error" role="alert">
-          Conferência pausada. A administração vai analisar o impedimento antes
-          de abrir uma nova rodada.
+          Conferência pausada. A administração vai analisar o impedimento.
         </p>
       )}
       {current.review?.round > 1 && (
         <p className="review-state">
-          Rodada {current.review.round}: a conferência foi reiniciada após uma
-          alteração de equipe ou análise de impedimento. Os votos anteriores
-          foram preservados e não contam para esta rodada.
+          Rodada {current.review.round}. Os votos anteriores estão no histórico.
         </p>
       )}
       {guided && current.status !== "rejeitado" && (
         <div
-          className="review-state"
+          className="review-independence"
           hidden={activeStep !== 1 && activeStep !== 2}
         >
-          <p>Esta caderneta precisa de três aprovações independentes.</p>
           {current.review?.waitingForTeam && (
-            <p role="status">Aguardando os três profissionais habilitados.</p>
+            <p className="review-state" role="status">
+              Aguardando equipe de três revisores.
+            </p>
           )}
           {canActUbs && (
             <label className="checkbox">
@@ -528,8 +520,7 @@ export function DocumentReview({
                 }
               />
               <span>
-                Não tenho vínculo pessoal ou conflito de interesse neste caso e
-                farei minha própria conferência.
+                Vou conferir sem vínculo pessoal ou conflito de interesse.
               </span>
             </label>
           )}
@@ -538,7 +529,7 @@ export function DocumentReview({
               route={route}
               parent={[...wizardPath, step || "decisao"]}
               path={[...wizardPath, step || "decisao", "informar-impedimento"]}
-              title="Tenho um impedimento para conferir"
+              title="Informar impedimento"
             >
               <form
                 onSubmit={async (e) => {
@@ -579,8 +570,8 @@ export function DocumentReview({
         {current.review?.myVote && (
           <p className="review-state">
             {current.status === "pendente"
-              ? "Seu voto foi registrado. A conclusão depende das outras conferências independentes."
-              : "Sua decisão foi registrada."}
+              ? "Voto salvo. Aguardando os outros revisores."
+              : "Decisão salva."}
           </p>
         )}
         {canVoteDocument && (
@@ -593,11 +584,6 @@ export function DocumentReview({
             onSubmit={decide}
             busy={!canSubmit}
           />
-        )}
-        {guided && !canVoteDocument && !current.review?.myVote && (
-          <p>
-            Arquivo: <Badge status={current.status} />
-          </p>
         )}
         {current.reviewGuidance && (
           <div className="notice-box">
@@ -619,7 +605,9 @@ export function DocumentReview({
           <h3 className="subheading">Doses encontradas no arquivo</h3>
         )}
         <p className="small muted">
-          A equipe confere cada dose separadamente do arquivo.
+          {guided
+            ? "Confira cada dose separadamente."
+            : "A UBS confere cada dose."}
         </p>
         {records.length ? (
           records.map((r) => (
@@ -659,8 +647,7 @@ export function DocumentReview({
                   >
                     {current.status !== "aprovado" && (
                       <p className="small muted">
-                        A confirmação da dose fica disponível após a aprovação
-                        do arquivo.
+                        Confirme a dose após a aprovação do arquivo.
                       </p>
                     )}
                     <ReviewDecision
@@ -684,10 +671,7 @@ export function DocumentReview({
             </article>
           ))
         ) : (
-          <p className="muted">
-            Nenhuma dose identificada ainda. A UBS pode transcrever o que
-            estiver legível no original.
-          </p>
+          <p className="muted">Nenhuma dose encontrada.</p>
         )}
         {user.role === "ubs" && current.status !== "rejeitado" && !onHold && (
           <RouteDetails
@@ -736,10 +720,7 @@ export function DocumentReview({
         )}
       </div>
       <div hidden={guided && activeStep !== 3}>
-        <h3 className="subheading">Doses para conferir com a UBS</h3>
-        <p className="small muted">
-          O sistema sugere quais doses a equipe deve conferir.
-        </p>
+        <h3 className="subheading">Doses sinalizadas pelo sistema</h3>
         {pendings.filter((p) => p.status === "aberta").length ? (
           <div className="pending-list">
             {pendings
@@ -750,19 +731,20 @@ export function DocumentReview({
                     <strong>
                       {vaccineLabel(p.vaccine)} • Dose {p.dose}
                     </strong>
-                    <small>
-                      Cálculo automático • Regra {p.rule_id} ({p.rule_version})
-                    </small>
-                    <p>{p.reason}</p>
+                    <details>
+                      <summary>Motivo e regra</summary>
+                      <p>{p.reason}</p>
+                      <small>
+                        Regra {p.rule_id} ({p.rule_version})
+                      </small>
+                    </details>
                   </div>
                   <Badge status={p.status} />
                 </article>
               ))}
           </div>
         ) : (
-          <p className="muted">
-            Nenhuma pendência aberta nas regras automáticas para esta pessoa.
-          </p>
+          <p className="muted">Nenhuma dose sinalizada.</p>
         )}
         {pendings.some((p) => p.status === "resolvida") && (
           <details className="audit">
@@ -1192,28 +1174,23 @@ export function AgentGuide({ compact = false }) {
   const text = (
     <>
       <p>
-        O agente comunitário de saúde (ACS) ajuda as famílias a falar com a
-        unidade de saúde sobre vacinas e datas de retorno.
+        O agente comunitário de saúde (ACS) aproxima a família da unidade de
+        saúde.
       </p>
       <ol className="task-list">
+        <li>Comece pelos casos mais antigos.</li>
         <li>
-          Veja quem precisa de contato. Comece pelos casos que estão esperando
-          há mais tempo.
+          Ligue, mande mensagem ou visite. Oriente a família a procurar a
+          unidade.
         </li>
-        <li>
-          Ligue, mande uma mensagem ou faça uma visita. Oriente a família a
-          procurar a unidade.
-        </li>
-        <li>
-          Registre o contato ou a tentativa. A equipe da unidade confere as
-          cadernetas e as doses.
-        </li>
+        <li>Registre o contato ou a tentativa.</li>
       </ol>
+      <p>A unidade confere a caderneta e as doses.</p>
     </>
   );
   return compact ? (
     <details className="notice-box">
-      <summary>Como funciona o trabalho do ACS?</summary>
+      <summary>Como funciona o contato?</summary>
       {text}
     </details>
   ) : (
@@ -1281,34 +1258,42 @@ export function Outreach({ user, act, busy, onError, route }) {
       <Section title="Famílias para contatar">
         <div className="table-toolbar">
           <Field
-            label="Buscar pessoa ou responsável"
+            label="Buscar por nome"
             value={q}
             onChange={(e) => route.setSearch(e.target.value)}
-            placeholder="Buscar nome"
+            placeholder="Pessoa ou responsável"
           />
-          <Field label="Prioridade">
-            <select
-              value={priority}
-              onChange={(e) =>
-                route.setFilter("prioridade", e.target.value, "todas")
-              }
-            >
-              <option value="todas">Todas</option>
-              <option value="alta">Alta • 30 dias ou mais</option>
-              <option value="normal">Normal</option>
-            </select>
-          </Field>
-          <Field label="Situação">
-            <select
-              value={status}
-              onChange={(e) =>
-                route.setFilter("situacao", e.target.value, "aberta")
-              }
-            >
-              <option value="aberta">Casos ativos</option>
-              <option value="resolvida">Histórico de resolvidos</option>
-            </select>
-          </Field>
+          <details className="outreach-filters">
+            <summary>
+              Filtros
+              {priority !== "todas" || status !== "aberta" ? " ativos" : ""}
+            </summary>
+            <div className="form-grid">
+              <Field label="Prioridade">
+                <select
+                  value={priority}
+                  onChange={(e) =>
+                    route.setFilter("prioridade", e.target.value, "todas")
+                  }
+                >
+                  <option value="todas">Todas</option>
+                  <option value="alta">Alta (30 dias ou mais)</option>
+                  <option value="normal">Normal</option>
+                </select>
+              </Field>
+              <Field label="Situação">
+                <select
+                  value={status}
+                  onChange={(e) =>
+                    route.setFilter("situacao", e.target.value, "aberta")
+                  }
+                >
+                  <option value="aberta">Ativos</option>
+                  <option value="resolvida">Resolvidos</option>
+                </select>
+              </Field>
+            </div>
+          </details>
         </div>
         {shown.length ? (
           <div className="outreach-list">
@@ -1322,13 +1307,11 @@ export function Outreach({ user, act, busy, onError, route }) {
                 <span>
                   <strong>{c.dependent}</strong>
                   <small>Responsável: {c.guardian}</small>
-                  <small>{c.reason}</small>
                 </span>
-                <span
-                  className={`badge ${c.priority === "alta" ? "rejeitado" : "a_conferir"}`}
-                >
-                  {c.priority === "alta" ? "Alta prioridade" : "Acompanhar"}
-                </span>
+                {c.priority === "alta" && (
+                  <span className="badge rejeitado">Prioridade alta</span>
+                )}
+                <ChevronRight aria-hidden="true" size={16} />
               </button>
             ))}
           </div>
@@ -1352,7 +1335,10 @@ export function Outreach({ user, act, busy, onError, route }) {
           <h3>{selected.dependent}</h3>
           <p className="muted">Responsável: {selected.guardian}</p>
           <p>Contato: {selected.contact || "Não informado"}</p>
-          <p className="notice-box">{selected.reason}</p>
+          <details className="contact-reason">
+            <summary>Motivo do acompanhamento</summary>
+            <p>{selected.reason}</p>
+          </details>
           {user.role === "acs" &&
             status === "aberta" &&
             form !== "registrar" && (

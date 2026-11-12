@@ -18,7 +18,7 @@ export function Empty({ title = "Tudo tranquilo por aqui", children, action }) {
   return (
     <div className="empty">
       <h3>{title}</h3>
-      <p>{children}</p>
+      {children && <p>{children}</p>}
       {action}
     </div>
   );

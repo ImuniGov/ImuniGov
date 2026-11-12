@@ -69,3 +69,5 @@ Lint, formatação, build e testes funcionais são registrados em KANBAN.md. A r
 - O calendário abre no mês atual, destaca os dias com doses e permite consultar toda a família, uma pessoa ou todas as datas. Datas que já passaram têm atalho e orientação para conferência.
 - A UBS percorre Arquivo, Decisão, Doses e Histórico. Motivo e orientação aparecem conforme a decisão. A aprovação do arquivo e a confirmação de cada dose continuam sendo ações distintas.
 - A tela do ACS explica a fila, a prioridade, as opções de contato e o registro de tentativas. A fila de cadernetas tem cartões em telas estreitas.
+
+A segunda revisão (K21.2) deixou resumo e ajuda recolhíveis, encurtou os filtros do calendário e os rótulos da UBS, trouxe a busca e os contatos do ACS para a primeira tela e reservou a cor de alerta para prioridades altas. Validação no Chrome em 320 e 390 px com dados fictícios.

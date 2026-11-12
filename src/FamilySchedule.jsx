@@ -45,9 +45,7 @@ export function ScheduleSummary({ schedule, open }) {
             {formatDate(next.dueDate)}
           </p>
         )}
-        {!next && overdue && (
-          <p>Confira com a unidade de saúde as datas que já passaram.</p>
-        )}
+        {!next && overdue && <p>Veja as datas que já passaram.</p>}
       </div>
       <button className="text-link" onClick={open}>
         Ver calendário <ArrowRight size={16} />
@@ -115,7 +113,7 @@ export default function FamilySchedule({
                 route.setFilter("pessoa", event.target.value, "todos")
               }
             >
-              <option value="todos">Toda a família</option>
+              <option value="todos">Todos</option>
               {people.map((p) => (
                 <option value={p.id} key={p.id}>
                   {p.name}
@@ -130,12 +128,10 @@ export default function FamilySchedule({
                 route.setFilter("quando", event.target.value, "todos")
               }
             >
-              <option value="todos">Qualquer situação</option>
-              {Object.entries(statuses).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
+              <option value="todos">Todas</option>
+              <option value="proxima">Até 30 dias</option>
+              <option value="atrasada">Passadas</option>
+              <option value="prevista">Mais tarde</option>
             </select>
           </Field>
         </div>
@@ -157,7 +153,7 @@ export default function FamilySchedule({
                 route.open(["filtros"], { query });
               }}
             >
-              Ver datas que já passaram
+              Datas que já passaram
             </button>
           </div>
         )}
@@ -202,7 +198,7 @@ export default function FamilySchedule({
               )
             }
           >
-            {month === "todos" ? "Voltar ao mês atual" : "Ver todos os meses"}
+            {month === "todos" ? "Voltar ao mês atual" : "Todos os meses"}
           </button>
         </div>
         {month !== "todos" && (
@@ -259,8 +255,7 @@ export default function FamilySchedule({
                       <h3>{vaccineLabel(dose.vaccine)}</h3>
                       <p>
                         Dose {dose.dose}
-                        {dose.sourceType === "ubs" &&
-                          " · Data marcada pela unidade"}
+                        {dose.sourceType === "ubs" && " · Data da UBS"}
                       </p>
                       {dose.note && <small>{dose.note}</small>}
                       {dose.hasCandidate && (
