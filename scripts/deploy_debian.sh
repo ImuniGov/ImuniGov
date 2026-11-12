@@ -51,5 +51,20 @@ for _ in $(seq 1 60); do
   sleep 3
 done
 echo
-echo "ImuniGuia no ar: $PUBLIC_ORIGIN"
+echo "=========================================================="
+echo "  ImuniGuia no ar com HTTPS:"
+echo "  $PUBLIC_ORIGIN"
+echo "=========================================================="
+
+if ! command -v qrencode >/dev/null; then
+  apt-get install -y -qq qrencode 2>/dev/null || true
+fi
+
+if command -v qrencode >/dev/null; then
+  echo
+  echo "Aponte a câmera do celular para abrir o app diretamente:"
+  qrencode -t ANSIUTF8 "$PUBLIC_ORIGIN"
+fi
+
+echo
 echo "Próximo passo:   sudo ./scripts/seed_demo.sh"
