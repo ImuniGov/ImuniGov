@@ -21,8 +21,12 @@ if [ -z "${PUBLIC_ORIGIN:-}" ]; then
     dpkg -i /tmp/cloudflared.deb
   fi
   echo ">> Abrindo túnel temporário..."
-  pkill -f "cloudflared tunnel --url" 2>/dev/null || true
+  # Encerra somente o túnel criado por este script (outros túneis do servidor não são tocados).
+  if [ -f /run/imuniguia-tunnel.pid ]; then
+    kill "$(cat /run/imuniguia-tunnel.pid)" 2>/dev/null || true
+  fi
   nohup cloudflared tunnel --no-autoupdate --url http://localhost:4173 >/var/log/imuniguia-tunnel.log 2>&1 &
+  echo $! > /run/imuniguia-tunnel.pid
   for _ in $(seq 1 40); do
     PUBLIC_ORIGIN=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /var/log/imuniguia-tunnel.log | head -1 || true)
     [ -n "$PUBLIC_ORIGIN" ] && break
