@@ -2969,3 +2969,158 @@ summary {
   flex-shrink: 0;
   color: var(--muted);
 }
+
+.queue-action {
+  padding: 0 24px 24px;
+}
+
+.review-archive,
+.vaccine-records,
+.next-dose-grid,
+.vaccine-history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.review-archive .person-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 54px;
+  gap: 10px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.history-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.history-nav button {
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--green);
+}
+.history-nav button[aria-current="page"] {
+  border-color: var(--green);
+  background: #e5f2e9;
+  font-weight: 700;
+}
+.vaccine-records,
+.next-dose-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  padding: 0 20px 20px;
+}
+.vaccine-records li,
+.next-dose-grid li {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.vaccine-record-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+.vaccine-records li > p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+.vaccine-records summary,
+.next-dose-grid summary,
+.vaccine-history summary {
+  color: var(--green);
+  font-size: 14px;
+}
+.next-dose-grid {
+  align-items: stretch;
+}
+.next-dose-grid li {
+  display: flex;
+  flex-direction: column;
+  background: #f6faf6;
+}
+.dose-number {
+  color: var(--green);
+  font-weight: 700;
+  margin-top: 5px;
+}
+.next-dose-grid li > details:first-of-type {
+  margin-top: auto;
+}
+.next-dose-grid li:has(details[open]) {
+  grid-column: 1 / -1;
+}
+.planned-dates {
+  margin-top: 12px;
+}
+.vaccine-history {
+  padding: 0 20px 20px;
+}
+.vaccine-history li {
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+  overflow-wrap: anywhere;
+}
+.vaccine-history time,
+.vaccine-history strong,
+.vaccine-history small {
+  display: block;
+  margin-bottom: 4px;
+}
+.vaccine-history time,
+.vaccine-history small {
+  font-size: 14px;
+  color: var(--muted);
+}
+.auth-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0 12px;
+  margin-bottom: 14px;
+}
+.auth-options .checkbox,
+.auth-options button,
+.auth-back {
+  min-height: 44px;
+}
+.auth-options .checkbox {
+  margin: 0;
+  align-items: center;
+}
+.auth-options .checkbox input {
+  margin: 0;
+}
+
+@media (max-width: 680px) {
+  .desktop-only,
+  .auth-story .story-copy {
+    display: none;
+  }
+  .vaccine-records {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .next-dose-grid,
+  .vaccine-records,
+  .vaccine-history {
+    padding-inline: 14px;
+  }
+  .next-dose-grid li {
+    padding: 12px;
+  }
+  .history-nav button {
+    font-size: 14px;
+  }
+}

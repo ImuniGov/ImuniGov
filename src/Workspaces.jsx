@@ -14,7 +14,12 @@ import {
 } from "./components";
 
 import { useVaccineCatalog } from "./useVaccineCatalog";
-import { formatDate, today, vaccineLabel } from "./format";
+import {
+  formatDate,
+  nextPendingByVaccine,
+  today,
+  vaccineLabel,
+} from "./format";
 
 export function UploadForm({ people, selected, onClose, act, busy }) {
   const { names: vaccines } = useVaccineCatalog();
@@ -267,6 +272,8 @@ export function DocumentReview({
   step,
   route,
   onStep,
+  readOnly = false,
+  onProgress,
 }) {
   const guided = user.role === "ubs";
   const activeStep = Math.max(
@@ -340,8 +347,8 @@ export function DocumentReview({
         onClose();
         return;
       }
+      await onProgress();
       await refresh();
-      onStep("doses");
     }
   }
   async function candidate(e) {
@@ -379,18 +386,20 @@ export function DocumentReview({
         "Decisão do registro salva.",
       )
     ) {
+      await onProgress();
       await refresh();
-      onStep("doses");
     }
   }
   const onHold = Boolean(current.reviewHold || current.review?.onHold);
   const canVoteDocument =
     user.role === "ubs" &&
+    !readOnly &&
     current.status === "pendente" &&
     !onHold &&
     !current.review?.myVote;
   const canVoteAnyRecord =
     user.role === "ubs" &&
+    !readOnly &&
     current.status !== "rejeitado" &&
     !onHold &&
     records.some((r) => r.status === "a_conferir" && !r.review?.myVote);
@@ -399,7 +408,9 @@ export function DocumentReview({
   const canSubmit = independent && !current.review?.waitingForTeam && !busy;
   return (
     <Modal
-      title={guided ? "Conferir caderneta" : "Detalhes da caderneta"}
+      title={
+        guided && !readOnly ? "Conferir caderneta" : "Detalhes da caderneta"
+      }
       onClose={onClose}
     >
       <div className="review-summary">
@@ -635,6 +646,7 @@ export function DocumentReview({
               )}
               {r.review?.myVote && <p>Seu voto está registrado.</p>}
               {guided &&
+                !readOnly &&
                 current.status !== "rejeitado" &&
                 r.status === "a_conferir" &&
                 !onHold &&
@@ -720,12 +732,11 @@ export function DocumentReview({
         )}
       </div>
       <div hidden={guided && activeStep !== 3}>
-        <h3 className="subheading">Doses sinalizadas pelo sistema</h3>
-        {pendings.filter((p) => p.status === "aberta").length ? (
-          <div className="pending-list">
-            {pendings
-              .filter((p) => p.status === "aberta")
-              .map((p) => (
+        <details className="audit">
+          <summary>Doses sinalizadas pelo sistema</summary>
+          {nextPendingByVaccine(pendings).length ? (
+            <div className="pending-list">
+              {nextPendingByVaccine(pendings).map((p) => (
                 <article className="record-card" key={p.id}>
                   <div>
                     <strong>
@@ -742,36 +753,37 @@ export function DocumentReview({
                   <Badge status={p.status} />
                 </article>
               ))}
-          </div>
-        ) : (
-          <p className="muted">Nenhuma dose sinalizada.</p>
-        )}
-        {pendings.some((p) => p.status === "resolvida") && (
-          <details className="audit">
-            <summary>
-              Histórico de pendências resolvidas desta pessoa (
-              {pendings.filter((p) => p.status === "resolvida").length})
-            </summary>
-            {pendings
-              .filter((p) => p.status === "resolvida")
-              .map((p) => (
-                <article className="feedback-entry" key={p.id}>
-                  <strong>
-                    {vaccineLabel(p.vaccine)} • Dose {p.dose} • Resolvida após
-                    conferência UBS
-                  </strong>
-                  <p>
-                    <strong>Motivo anterior (resolvido):</strong>{" "}
-                    {p.historical_reason || p.reason}
-                  </p>
-                  <small>
-                    Regra {p.rule_id} ({p.rule_version}) •{" "}
-                    {formatDate(p.updated_at)}
-                  </small>
-                </article>
-              ))}
-          </details>
-        )}
+            </div>
+          ) : (
+            <p className="muted">Nenhuma dose sinalizada.</p>
+          )}
+          {pendings.some((p) => p.status === "resolvida") && (
+            <details className="audit">
+              <summary>
+                Histórico de pendências resolvidas desta pessoa (
+                {pendings.filter((p) => p.status === "resolvida").length})
+              </summary>
+              {pendings
+                .filter((p) => p.status === "resolvida")
+                .map((p) => (
+                  <article className="feedback-entry" key={p.id}>
+                    <strong>
+                      {vaccineLabel(p.vaccine)} • Dose {p.dose} • Resolvida após
+                      conferência UBS
+                    </strong>
+                    <p>
+                      <strong>Motivo anterior (resolvido):</strong>{" "}
+                      {p.historical_reason || p.reason}
+                    </p>
+                    <small>
+                      Regra {p.rule_id} ({p.rule_version}) •{" "}
+                      {formatDate(p.updated_at)}
+                    </small>
+                  </article>
+                ))}
+            </details>
+          )}
+        </details>
         {priorVotes.length > 0 && (
           <details className="audit">
             <summary>Conferências de rodadas anteriores</summary>
@@ -896,15 +908,39 @@ export function FamilyHistory({
       await refresh();
     }
   }
+  const subview = route.parts[2];
+  const section = [
+    "doses-a-conferir",
+    "orientar-familia",
+    "definir-proxima-data",
+    "cancelar-data",
+  ].includes(subview)
+    ? "doses-a-conferir"
+    : subview === "historico"
+      ? "historico"
+      : "registradas";
+  const nextDoses = nextPendingByVaccine(pendings);
+  const planOpen = ["definir-proxima-data", "cancelar-data"].includes(subview);
+  const history = [
+    ...guidance.map((entry) => ({
+      ...entry,
+      kind: "guidance",
+      date: entry.created_at,
+    })),
+    ...pendings
+      .filter((entry) => entry.status === "resolvida")
+      .map((entry) => ({
+        ...entry,
+        kind: "resolved",
+        date: entry.updated_at,
+      })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
   return (
     <>
       <div className="person-selector">
-        <Field label="Pessoa acompanhada">
-          <select
-            value={selected}
-            onChange={(e) => onSelect(e.target.value)}
-            aria-label="Selecionar pessoa para histórico"
-          >
+        <Field label="Pessoa">
+          <select value={selected} onChange={(e) => onSelect(e.target.value)}>
             <option value="">Selecione uma pessoa</option>
             {people.map((p) => (
               <option key={p.id} value={p.id}>
@@ -913,7 +949,7 @@ export function FamilyHistory({
             ))}
           </select>
         </Field>
-        {user.role === "ubs" && selected && (
+        {user.role === "ubs" && selected && section === "doses-a-conferir" && (
           <button
             className="secondary"
             disabled={busy}
@@ -931,217 +967,206 @@ export function FamilyHistory({
           </button>
         )}
       </div>
-      {user.role === "familia" && (
-        <FamilyReturns selected={selected} onError={onError} resend={resend} />
+
+      {selected && (
+        <nav className="history-nav" aria-label="Vacinas e histórico">
+          {[
+            ["registradas", "Registradas"],
+            ["doses-a-conferir", "A conferir"],
+            ["historico", "Histórico"],
+          ].map(([key, label]) => (
+            <button
+              type="button"
+              key={key}
+              aria-current={section === key ? "page" : undefined}
+              onClick={() => route.open(["pessoa", selected, key])}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
       )}
-      <DosePlans
-        route={route}
-        selected={selected}
-        user={user}
-        act={act}
-        busy={busy}
-        onError={onError}
-      />
-      <details className="notice-box">
-        <summary>Quais vacinas o sistema acompanha?</summary>
-        <ShieldScope />
-      </details>
       {!selected ? (
-        <Section title="Vacinas e orientações">
-          <Empty title="Selecione uma pessoa">
-            As informações ficam organizadas por pessoa.
-          </Empty>
-        </Section>
+        <Empty title="Selecione uma pessoa" />
       ) : loading ? (
-        <div className="loading-inline" role="status">
-          Carregando acompanhamento…
-        </div>
+        <p className="loading-inline" role="status">
+          Carregando…
+        </p>
+      ) : section === "registradas" ? (
+        <Section title="Vacinas registradas">
+          {records.length ? (
+            <ul className="vaccine-records">
+              {records.map((record) => (
+                <li key={record.id}>
+                  <div className="vaccine-record-heading">
+                    <strong>{vaccineLabel(record.vaccine)}</strong>
+                    <Badge status={record.status} />
+                  </div>
+                  <p>
+                    Dose {record.dose} · {formatDate(record.dose_date)}
+                  </p>
+                  <details>
+                    <summary>Detalhes</summary>
+                    <p>
+                      {record.origin === "ocr"
+                        ? "Leitura automática da caderneta"
+                        : "Digitada pela UBS"}
+                    </p>
+                    {record.review_note && <p>{record.review_note}</p>}
+                    {record.review_guidance && <p>{record.review_guidance}</p>}
+                    {record.document_id && (
+                      <a
+                        className="text-link"
+                        href={`/api/documents/${record.document_id}/file`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Abrir caderneta
+                      </a>
+                    )}
+                  </details>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Empty title="Nenhuma vacina registrada" />
+          )}
+        </Section>
+      ) : section === "doses-a-conferir" ? (
+        <>
+          <Section title="Doses a conferir">
+            {nextDoses.length ? (
+              <ul className="next-dose-grid">
+                {nextDoses.map((pending) => (
+                  <li key={pending.id}>
+                    <strong>{vaccineLabel(pending.vaccine)}</strong>
+                    <span className="dose-number">Dose {pending.dose}</span>
+                    <details>
+                      <summary>Motivo</summary>
+                      <p>{pending.reason}</p>
+                      {user.role === "ubs" && (
+                        <small>
+                          Regra {pending.rule_id} · {pending.rule_version}
+                        </small>
+                      )}
+                    </details>
+                    {user.role === "ubs" && (
+                      <RouteDetails
+                        route={route}
+                        parent={["pessoa", selected, "doses-a-conferir"]}
+                        path={[
+                          "pessoa",
+                          selected,
+                          "orientar-familia",
+                          pending.id,
+                        ]}
+                        title="Orientar família"
+                      >
+                        <form onSubmit={(e) => addGuidance(e, pending)}>
+                          <fieldset disabled={busy}>
+                            <Field label="Orientação da UBS">
+                              <textarea
+                                name="text"
+                                minLength={3}
+                                maxLength={1000}
+                                rows={3}
+                                required
+                              />
+                            </Field>
+                            <label className="checkbox">
+                              <input
+                                type="checkbox"
+                                name="released"
+                                defaultChecked
+                              />
+                              <span>Liberar para a família</span>
+                            </label>
+                            <button className="secondary" type="submit">
+                              Salvar orientação
+                            </button>
+                          </fieldset>
+                        </form>
+                      </RouteDetails>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty title="Nenhuma dose sinalizada pelo sistema" />
+            )}
+          </Section>
+          <details className="secondary-panel">
+            <summary>Sobre estas doses</summary>
+            <p>
+              Mostra a primeira dose sinalizada de cada vacina. Leve a caderneta
+              à UBS para conferir.
+            </p>
+            <ShieldScope />
+          </details>
+          <details
+            className="secondary-panel planned-dates"
+            open={planOpen || undefined}
+          >
+            <summary>Datas marcadas pela UBS</summary>
+            <DosePlans
+              route={route}
+              selected={selected}
+              user={user}
+              act={act}
+              busy={busy}
+              onError={onError}
+            />
+          </details>
+        </>
       ) : (
         <>
-          <Section
-            title="Vacinas registradas"
-            description="Origem, dose e situação de cada registro."
-          >
-            {records.length ? (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th scope="col">VACINA / DOSE</th>
-                      <th scope="col">DATA</th>
-                      <th scope="col">ORIGEM</th>
-                      <th scope="col">SITUAÇÃO</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {records.map((r) => (
-                      <tr key={r.id}>
-                        <td>
-                          <strong>{vaccineLabel(r.vaccine)}</strong>
-                          <small>Dose {r.dose}</small>
-                        </td>
-                        <td>{formatDate(r.dose_date)}</td>
-                        <td>
-                          {r.origin === "ocr"
-                            ? "Leitura assistida"
-                            : "Transcrição UBS"}
-                          {r.document_id && (
-                            <a
-                              className="text-link small"
-                              href={`/api/documents/${r.document_id}/file`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Ver evidência
-                            </a>
-                          )}
-                        </td>
-                        <td>
-                          <Badge status={r.status} />
-                          {r.review_note && <small>{r.review_note}</small>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {user.role === "familia" && (
+            <FamilyReturns
+              selected={selected}
+              onError={onError}
+              resend={resend}
+            />
+          )}
+          <Section title="Histórico">
+            {history.length ? (
+              <ol className="vaccine-history">
+                {history.map((entry) => (
+                  <li key={entry.kind + entry.id}>
+                    <time dateTime={entry.date}>{formatDate(entry.date)}</time>
+                    <strong>
+                      {entry.kind === "guidance"
+                        ? entry.vaccine
+                          ? vaccineLabel(entry.vaccine) +
+                            " · Dose " +
+                            entry.dose
+                          : "Orientação da UBS"
+                        : vaccineLabel(entry.vaccine) + " · Dose " + entry.dose}
+                    </strong>
+                    {entry.kind === "guidance" ? (
+                      <>
+                        <p>{entry.text}</p>
+                        <small>
+                          {entry.author_name || "Equipe da UBS"}
+                          {!entry.released && " · Rascunho"}
+                        </small>
+                      </>
+                    ) : (
+                      <>
+                        <Badge status="resolvida" />
+                        <details>
+                          <summary>Motivo anterior</summary>
+                          <p>{entry.historical_reason || entry.reason}</p>
+                          <small>
+                            Regra {entry.rule_id} · {entry.rule_version}
+                          </small>
+                        </details>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ol>
             ) : (
-              <Empty title="Histórico aguardando registros">
-                Envie uma caderneta para a equipe conferir as informações.
-              </Empty>
-            )}
-          </Section>
-          <Section
-            title="Doses para conferir com a UBS"
-            description="O sistema sugere quais doses conferir com a unidade de saúde."
-          >
-            {pendings.filter((p) => p.status === "aberta").length ? (
-              <div className="pending-list">
-                {pendings
-                  .filter((p) => p.status === "aberta")
-                  .map((p) => (
-                    <article key={p.id}>
-                      <div className="section-heading">
-                        <div>
-                          <span className="eyebrow">
-                            CÁLCULO AUTOMÁTICO • SUJEITO À CONFERÊNCIA DA UBS
-                          </span>
-                          <h3>
-                            {vaccineLabel(p.vaccine)} • Dose {p.dose}
-                          </h3>
-                          <p>{p.reason}</p>
-                        </div>
-                        <Badge status={p.status} />
-                      </div>
-                      <small className="muted">
-                        Regra {p.rule_id} • versão {p.rule_version} •{" "}
-                        {formatDate(p.updated_at)}
-                      </small>
-                      {user.role === "ubs" && (
-                        <RouteDetails
-                          className="transcription"
-                          route={route}
-                          parent={["pessoa", selected]}
-                          path={["pessoa", selected, "orientar-familia", p.id]}
-                          title="Orientar a família"
-                        >
-                          <form onSubmit={(e) => addGuidance(e, p)}>
-                            <fieldset disabled={busy}>
-                              <Field label="Orientação da UBS">
-                                <textarea
-                                  name="text"
-                                  minLength={3}
-                                  maxLength={1000}
-                                  rows={3}
-                                  required
-                                />
-                              </Field>
-                              <label className="checkbox">
-                                <input
-                                  type="checkbox"
-                                  name="released"
-                                  defaultChecked
-                                />
-                                <span>Liberar para a família</span>
-                              </label>
-                              <button className="secondary" type="submit">
-                                Salvar orientação
-                              </button>
-                            </fieldset>
-                          </form>
-                        </RouteDetails>
-                      )}
-                    </article>
-                  ))}
-              </div>
-            ) : (
-              <Empty title="Nenhuma pendência aberta nas vacinas avaliadas">
-                Isso não comprova situação vacinal completa. A UBS deve conferir
-                as demais vacinas e condições individuais.
-              </Empty>
-            )}
-            {pendings.some((p) => p.status === "resolvida") && (
-              <details className="audit">
-                <summary>
-                  Histórico de pendências resolvidas (
-                  {pendings.filter((p) => p.status === "resolvida").length})
-                </summary>
-                <p className="small muted">
-                  Pendências encerradas após confirmação profissional de dose
-                  compatível. Os motivos abaixo referem-se apenas à situação
-                  anterior à resolução.
-                </p>
-                {pendings
-                  .filter((p) => p.status === "resolvida")
-                  .map((p) => (
-                    <article className="feedback-entry" key={p.id}>
-                      <div className="section-heading">
-                        <div>
-                          <span className="eyebrow">
-                            CONFERÊNCIA PROFISSIONAL CONCLUÍDA
-                          </span>
-                          <h3>
-                            {vaccineLabel(p.vaccine)} • Dose {p.dose}
-                          </h3>
-                        </div>
-                        <Badge status={p.status} />
-                      </div>
-                      <p>
-                        <strong>Motivo anterior (resolvido):</strong>{" "}
-                        {p.historical_reason || p.reason}
-                      </p>
-                      <small className="muted">
-                        Regra {p.rule_id} • versão {p.rule_version} • Resolvida
-                        em {formatDate(p.updated_at)}
-                      </small>
-                    </article>
-                  ))}
-              </details>
-            )}
-          </Section>
-          <Section
-            title="Orientações da equipe"
-            description="Histórico das orientações liberadas pela UBS."
-          >
-            {guidance.length ? (
-              guidance.map((g) => (
-                <article className="guidance-card" key={g.id}>
-                  <span className="eyebrow">
-                    ORIENTAÇÃO UBS
-                    {g.vaccine ? ` • ${g.vaccine} (DOSE ${g.dose})` : ""}
-                    {!g.released && " • RASCUNHO"}
-                  </span>
-                  <p>{g.text}</p>
-                  <small>
-                    {formatDate(g.created_at)} •{" "}
-                    {g.author_name || `Profissional ${g.author_id.slice(0, 8)}`}
-                  </small>
-                </article>
-              ))
-            ) : (
-              <Empty title="Nenhuma orientação liberada">
-                Quando a equipe registrar uma orientação, ela aparecerá aqui.
-              </Empty>
+              <Empty title="Sem orientações ou doses resolvidas" />
             )}
           </Section>
         </>
@@ -1189,12 +1214,12 @@ export function AgentGuide({ compact = false }) {
     </>
   );
   return compact ? (
-    <details className="notice-box">
+    <details className="notice-box desktop-only">
       <summary>Como funciona o contato?</summary>
       {text}
     </details>
   ) : (
-    <Section title="O que faz o ACS?" className="agent-guide">
+    <Section title="O que faz o ACS?" className="agent-guide desktop-only">
       {text}
     </Section>
   );

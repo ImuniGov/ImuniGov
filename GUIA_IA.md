@@ -7,7 +7,7 @@ Atualizado em 2026-11-11 (America/Cuiaba). Ler AGENTS.md, roadmap.md e KANBAN.md
 ## Estado técnico
 
 - React 19/Vite, JSX, CSS responsivo, PWA com cache apenas público. Não inventar fontes TypeScript existentes.
-- FastAPI/Pydantic, SQLAlchemy Core, Alembic (revisão `012`), PostgreSQL no Docker e SQLite em testes locais. Diagrama ER em `docs/MODELAGEM_DADOS.md`.
+- FastAPI/Pydantic, SQLAlchemy Core, Alembic (revisão `013`), PostgreSQL no Docker e SQLite em testes locais. Diagrama ER em `docs/MODELAGEM_DADOS.md`.
 - Worker SQL persistente, OCR Tesseract por/eng e Poppler. Falha legível permite transcrição manual.
 - Sessão opaca com cookie HttpOnly/SameSite, Argon2, CSRF, rate limit, autorização no servidor. Staff só por administração.
 - Documento `pendente/aprovado/rejeitado`; dose `a_conferir/validado/recusado`. Não confluir estados.

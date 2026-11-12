@@ -79,16 +79,23 @@ def public_user(user):
     }
 
 
-def start_session(con, user_id, response, secure):
+def start_session(con, user_id, response, secure, *, remember=False):
+    duration = 7 * 86400 if remember else 28800
     token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
     con.execute(delete(db.sessions).where(db.sessions.c.expires <= int(time.time())))
     con.execute(
         insert(db.sessions).values(
-            id=token_hash(token), user_id=user_id, csrf=csrf, expires=int(time.time()) + 28800
+            id=token_hash(token), user_id=user_id, csrf=csrf, expires=int(time.time()) + duration
         )
     )
     response.set_cookie(
-        "imuniguia_session", token, httponly=True, secure=secure, samesite="strict", max_age=28800, path="/"
+        "imuniguia_session",
+        token,
+        httponly=True,
+        secure=secure,
+        samesite="strict",
+        max_age=duration if remember else None,
+        path="/",
     )
     return csrf
 

@@ -15,8 +15,9 @@ from . import security as sec
 from .access import document, one, person, public_document
 from .consents import allowed, permitted_owner, state
 from .domain import event, now, recalculate, uid
+from .password_reset import redeem_reset_code
 from .privacy import record_acceptance
-from .reviews import assign_document, assign_waiting, cast_vote, lock_roster
+from .reviews import assign_document, assign_waiting, cast_vote, lock_roster, next_review
 
 router = APIRouter()
 User = Depends(sec.session_user)
@@ -54,11 +55,6 @@ def login(body: s.Login, request: Request, response: Response):
         valid = sec.verify(user["password_hash"] if user else None, body.password)
         if not user or not valid:
             raise HTTPException(401, "E-mail ou senha inválidos.")
-        con.execute(
-            delete(db.sessions).where(
-                db.sessions.c.id == sec.token_hash(request.cookies.get("imuniguia_session", ""))
-            )
-        )
         if user["role"] == "ubs":
             if con.scalar(
                 select(db.reviewer_profiles.c.id).where(
@@ -67,12 +63,30 @@ def login(body: s.Login, request: Request, response: Response):
             ):
                 raise HTTPException(403, "Seu acesso profissional está suspenso. Procure a administração.")
             assign_waiting(con)
+        # Coordinate with a password reset that may have happened during verification.
+        password_hash = con.scalar(
+            select(db.users.c.password_hash).where(db.users.c.id == user["id"]).with_for_update()
+        )
+        if password_hash != user["password_hash"]:
+            raise HTTPException(401, "E-mail ou senha inválidos.")
+        con.execute(
+            delete(db.sessions).where(
+                db.sessions.c.id == sec.token_hash(request.cookies.get("imuniguia_session", ""))
+            )
+        )
         user = dict(user)
         if user["role"] == "familia":
             user["privacy"] = state(con, user["id"])
-        csrf = sec.start_session(con, user["id"], response, request.app.state.secure)
+        csrf = sec.start_session(con, user["id"], response, request.app.state.secure, remember=body.remember)
         event(con, user["id"], "user", user["id"], "login")
     return {"user": sec.public_user(user), "csrf": csrf}
+
+
+@router.post("/api/v1/auth/reset-password", status_code=204)
+def reset_password(body: s.ResetPassword, request: Request):
+    engine = request.app.state.engine
+    sec.rate_limit(engine, f"reset-ip:{request.client.host}", limit=10)
+    redeem_reset_code(engine, body.code, body.password)
 
 
 @router.get("/api/v1/me")
@@ -207,6 +221,18 @@ def remove_dependent(identifier: str, request: Request, user=User):
                 )
         con.execute(delete(db.dependents).where(db.dependents.c.id == identifier))
         event(con, user["id"], "dependent", identifier, "dependente_removido")
+
+
+@router.get("/api/v1/review/next")
+def next_review_document(request: Request, user=User):
+    sec.role(user, "ubs")
+    with request.app.state.engine.connect() as con:
+        item = next_review(con, user["id"])
+        return {
+            "item": {"id": item["id"], "step": "arquivo" if item["status"] == "pendente" else "doses"}
+            if item
+            else None
+        }
 
 
 @router.get("/api/documents")

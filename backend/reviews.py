@@ -6,10 +6,10 @@ import secrets
 from itertools import combinations
 
 from fastapi import HTTPException
-from sqlalchemy import insert, or_, select, update
+from sqlalchemy import and_, func, insert, or_, select, update
 
 from . import db
-from .consents import allowed
+from .consents import allowed, permitted_owner
 from .domain import event, notify, now, recalculate, uid
 from .geography import compatible, profile_snapshot
 
@@ -228,6 +228,75 @@ def assign_waiting(con):
             assign_document(con, document_id)
 
 
+def next_review(con, reviewer_id):
+    docs, own, doses, votes_table = db.documents, db.review_assignments, db.vaccinations, db.review_votes
+    panel = own.alias("panel")
+    panel_size = (
+        select(func.count())
+        .select_from(panel)
+        .where(
+            panel.c.document_id == docs.c.id,
+            panel.c.status == "ativa",
+            panel.c.review_round == docs.c.review_round,
+        )
+        .correlate(docs)
+        .scalar_subquery()
+    )
+    file_vote = (
+        select(votes_table.c.id)
+        .where(
+            votes_table.c.assignment_id == own.c.id,
+            votes_table.c.target_type == "document",
+            votes_table.c.target_id == docs.c.id,
+        )
+        .correlate(own, docs)
+        .exists()
+    )
+    dose_vote = (
+        select(votes_table.c.id)
+        .where(
+            votes_table.c.assignment_id == own.c.id,
+            votes_table.c.target_type == "vaccination",
+            votes_table.c.target_id == doses.c.id,
+        )
+        .correlate(own, doses)
+        .exists()
+    )
+    pending_doses = (
+        select(doses.c.id)
+        .where(
+            doses.c.document_id == docs.c.id,
+            doses.c.status == "a_conferir",
+            ~dose_vote,
+        )
+        .correlate(docs, own)
+        .exists()
+    )
+    return (
+        con.execute(
+            select(docs.c.id, docs.c.status)
+            .join(db.dependents, db.dependents.c.id == docs.c.dependent_id)
+            .join(own, own.c.document_id == docs.c.id)
+            .where(
+                own.c.reviewer_id == reviewer_id,
+                own.c.status == "ativa",
+                own.c.review_round == docs.c.review_round,
+                panel_size == QUORUM,
+                docs.c.review_hold.is_(False),
+                permitted_owner(db.dependents.c.owner_id),
+                or_(
+                    and_(docs.c.status == "pendente", ~file_vote),
+                    and_(docs.c.status == "aprovado", pending_doses),
+                ),
+            )
+            .order_by(docs.c.created_at, docs.c.id)
+            .limit(1)
+        )
+        .mappings()
+        .first()
+    )
+
+
 def require_assignment(con, document_id, user):
     if user["role"] != "ubs":
         return None
@@ -366,6 +435,9 @@ def cast_vote(
         raise HTTPException(409, "Seu voto já foi registrado e não pode ser alterado.")
     if decision == "recusar" and (len(note.strip()) < 3 or len(guidance.strip()) < 3):
         raise HTTPException(400, "Informe o motivo da recusa e a providência que a família deve tomar.")
+    first = next_review(con, user["id"])
+    if first and first["id"] != document_id:
+        raise HTTPException(409, "Conclua a primeira caderneta disponível da sua fila.")
     snapshot = {
         "documentSha256": document["sha256"],
         "targetType": target_type,

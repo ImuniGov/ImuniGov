@@ -12,9 +12,9 @@ from sqlalchemy import delete, func, insert, inspect, select, text
 
 from . import db
 
-EXCLUDED = {"sessions", "auth_attempts", "push_subscriptions"}
-SCHEMA_VERSION = "012"
-COMPATIBLE_SCHEMAS = {"001", SCHEMA_VERSION}
+EXCLUDED = {"sessions", "auth_attempts", "push_subscriptions", "password_resets"}
+SCHEMA_VERSION = "013"
+COMPATIBLE_SCHEMAS = {"001", "012", SCHEMA_VERSION}
 INITIAL_GATE = [{"id": "roster", "revision": 1}]
 
 

@@ -77,6 +77,7 @@ export default function App() {
   });
   const [cases, setCases] = useState([]);
   const [loadedFor, setLoadedFor] = useState(null);
+  const [nextReview, setNextReview] = useState(null);
   const currentUser = useRef(null);
   const changeUser = useCallback((next) => {
     currentUser.current = next;
@@ -86,6 +87,7 @@ export default function App() {
     setNotes([]);
     setCases([]);
     setLoadedFor(null);
+    setNextReview(null);
     setSchedule({ items: [], coverage: { valid: true, vaccines: [] } });
   }, []);
   const [toast, setToast] = useState(null),
@@ -136,6 +138,9 @@ export default function App() {
       user.role === "acs"
         ? api("/api/v1/acs/cases")
         : Promise.resolve({ items: [] }),
+      user.role === "ubs"
+        ? api("/api/v1/review/next")
+        : Promise.resolve({ item: null }),
     ]).catch((error) => {
       if (currentUser.current?.id !== user.id) return null;
       throw error;
@@ -146,6 +151,7 @@ export default function App() {
     setNotes(result[2].items);
     if (result[3]) setSchedule(result[3]);
     setCases(result[4].items);
+    setNextReview(result[5].item);
     setLoadedFor(user.id);
   }, [user]);
   useEffect(() => {
@@ -275,10 +281,51 @@ export default function App() {
     open(["enviar-caderneta", id], { query });
   };
   const person = people.find((p) => p.id === id);
+  const queueRoute = tab === "review" && action === "conferir-caderneta";
+  const archiveRoute = tab === "review" && action === "ver-conferencia";
   const documentRoute =
-    (tab === "review" && action === "conferir-caderneta") ||
+    queueRoute ||
+    archiveRoute ||
     (tab === "documents" && action === "ver-caderneta");
-  const currentDocument = documentRoute && documents.find((d) => d.id === id);
+  const archive =
+    user?.role === "ubs"
+      ? documents.filter(
+          (item) =>
+            item.status !== "pendente" ||
+            item.review?.myVote ||
+            item.reviewHold,
+        )
+      : [];
+  const currentDocument =
+    documentRoute &&
+    (queueRoute
+      ? nextReview?.id === id && documents.find((item) => item.id === id)
+      : (archiveRoute ? archive : documents).find((item) => item.id === id));
+  async function startReview() {
+    await act(
+      async () => {
+        const { item } = await api("/api/v1/review/next");
+        setNextReview(item);
+        navigate(
+          "review",
+          item ? ["conferir-caderneta", item.id, item.step] : [],
+        );
+      },
+      undefined,
+      false,
+    );
+  }
+  async function afterVote() {
+    try {
+      const { item } = await api("/api/v1/review/next");
+      setNextReview(item);
+      if (item?.id === id)
+        route.open([action, id, item.step], { replace: true });
+      else route.close();
+    } catch (error) {
+      showError(error);
+    }
+  }
   const unread = notes.filter((n) => !n.read).length;
   const pending = documents.filter((d) => d.status === "pendente").length;
   const shown = documents.filter(
@@ -474,6 +521,7 @@ export default function App() {
                     </h2>
                     <button
                       className="hero-button"
+                      disabled={user.role === "ubs" && busy}
                       onClick={() =>
                         user.role === "familia"
                           ? documents.length
@@ -483,9 +531,9 @@ export default function App() {
                                   ? "enviar-caderneta"
                                   : "adicionar-pessoa",
                               ])
-                          : navigate(
-                              user.role === "ubs" ? "review" : "outreach",
-                            )
+                          : user.role === "ubs"
+                            ? startReview()
+                            : navigate("outreach")
                       }
                     >
                       {user.role === "familia"
@@ -495,13 +543,13 @@ export default function App() {
                             ? "Enviar caderneta"
                             : "Cadastrar pessoa"
                         : user.role === "ubs"
-                          ? "Abrir fila"
+                          ? "Começar a conferir"
                           : "Ver contatos"}
                       <ArrowRight size={17} />
                     </button>
                   </div>
                 </div>
-                <details className="secondary-panel">
+                <details className="secondary-panel desktop-only">
                   <summary>Resumo</summary>
                   <div className="stats-grid">
                     {(user.role === "acs"
@@ -612,7 +660,7 @@ export default function App() {
                         />
                       )}
                     </Section>
-                    <details className="secondary-panel">
+                    <details className="secondary-panel desktop-only">
                       <summary>
                         {user.role === "ubs"
                           ? "Como conferir"
@@ -688,15 +736,57 @@ export default function App() {
                 )}
               </Section>
             )}
-            {["documents", "review"].includes(tab) && (
-              <Section
-                title={
-                  user.role === "ubs"
-                    ? "Arquivos para conferência"
-                    : "Cadernetas enviadas"
-                }
-                className="document-panel"
-              >
+            {tab === "review" && (
+              <>
+                <Section title="Próxima caderneta">
+                  <div className="queue-action">
+                    {loadedFor !== user.id ? (
+                      <p role="status">Carregando…</p>
+                    ) : nextReview ? (
+                      <button
+                        className="primary"
+                        disabled={busy}
+                        onClick={startReview}
+                      >
+                        Começar a conferir <ArrowRight size={17} />
+                      </button>
+                    ) : (
+                      <p>Nenhuma caderneta disponível agora.</p>
+                    )}
+                  </div>
+                </Section>
+                {archive.length > 0 && (
+                  <details className="secondary-panel">
+                    <summary>Conferências anteriores</summary>
+                    <ul className="review-archive">
+                      {archive.map((entry) => (
+                        <li key={entry.id}>
+                          <button
+                            className="person-row"
+                            onClick={() =>
+                              route.open([
+                                "ver-conferencia",
+                                entry.id,
+                                "historico",
+                              ])
+                            }
+                          >
+                            <span>
+                              <strong>{entry.dependent}</strong>
+                              <small>{formatDate(entry.createdAt)}</small>
+                            </span>
+                            <Badge status={entry.status} />
+                            <ChevronRight size={16} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </>
+            )}
+            {tab === "documents" && (
+              <Section title="Cadernetas enviadas" className="document-panel">
                 <div className="table-toolbar">
                   <Field label="Situação">
                     <select
@@ -760,16 +850,10 @@ export default function App() {
                               <button
                                 className="text-link"
                                 onClick={() =>
-                                  route.open([
-                                    user.role === "ubs"
-                                      ? "conferir-caderneta"
-                                      : "ver-caderneta",
-                                    d.id,
-                                    user.role === "ubs" ? "arquivo" : "",
-                                  ])
+                                  route.open(["ver-caderneta", d.id])
                                 }
                               >
-                                {user.role === "ubs" ? "Conferir" : "Detalhes"}
+                                Detalhes
                                 <ChevronRight size={16} />
                               </button>
                             </td>
@@ -788,9 +872,7 @@ export default function App() {
                   >
                     {search || filter !== "todos"
                       ? "Tente outro nome ou situação."
-                      : user.role === "familia"
-                        ? "Envie uma foto ou PDF para iniciar a conferência."
-                        : "Os novos envios aparecerão aqui para análise."}
+                      : "Envie uma foto ou PDF da caderneta."}
                   </Empty>
                 )}
               </Section>
@@ -949,8 +1031,8 @@ export default function App() {
             ? [
                 ["home", Home],
                 ["schedule", CalendarClock],
+                ["history", Heart],
                 ["documents", FileText],
-                ["notifications", Bell],
               ]
             : user.role === "ubs"
               ? [
@@ -981,7 +1063,9 @@ export default function App() {
                     : key === "review"
                       ? "Conferir"
                       : key === "history"
-                        ? "Histórico"
+                        ? user.role === "familia"
+                          ? "Vacinas"
+                          : "Histórico"
                         : key === "home"
                           ? "Início"
                           : tabs[key]}
@@ -1026,7 +1110,11 @@ export default function App() {
           )}
         {documentRoute && !currentDocument && loadedFor === user.id && (
           <Modal title="Caderneta indisponível" onClose={route.close}>
-            <p>Confira se a caderneta aparece na sua lista.</p>
+            <p>
+              {queueRoute
+                ? "Use Começar a conferir para abrir a primeira caderneta da fila."
+                : "Confira se a caderneta aparece na sua lista."}
+            </p>
           </Modal>
         )}
         {currentDocument && (
@@ -1035,6 +1123,8 @@ export default function App() {
             document={currentDocument}
             user={user}
             step={step}
+            readOnly={archiveRoute}
+            onProgress={afterVote}
             route={route}
             onStep={(next) => route.open([action, id, next], { replace: true })}
             onClose={route.close}

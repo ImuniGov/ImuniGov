@@ -5,11 +5,13 @@ import { Field, Privacy } from "./components";
 
 export default function Auth({ onLogin, location, go }) {
   const register = location.path.startsWith("/criar-conta");
+  const recovering = location.path === "/entrar/esqueci-a-senha";
   const base = register ? "/criar-conta" : "/entrar";
   const privacy = location.path === base + "/privacidade";
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [message, setMessage] = useState("");
   useEffect(() => {
     api("/api/v1/privacy/notice")
       .then(setNotice)
@@ -32,7 +34,7 @@ export default function Auth({ onLogin, location, go }) {
             termsVersion: notice?.version,
             privacyHash: notice?.hash,
           }
-        : {}),
+        : { remember: form.get("remember") === "on" }),
     };
     try {
       const result = await api(
@@ -41,6 +43,30 @@ export default function Auth({ onLogin, location, go }) {
       );
       setCsrf(result.csrf);
       onLogin(result.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function resetPassword(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const fields = new FormData(event.currentTarget);
+    const password = fields.get("password");
+    if (password !== fields.get("confirmPassword")) {
+      setError("As senhas precisam ser iguais.");
+      setBusy(false);
+      return;
+    }
+    try {
+      await api("/api/v1/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ code: fields.get("code").trim(), password }),
+      });
+      setMessage("Senha alterada. Entre com a nova senha.");
+      go("/entrar", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -66,114 +92,211 @@ export default function Auth({ onLogin, location, go }) {
       </div>
       <main className="auth-main">
         <div className="auth-card">
-          <h2>{register ? "Criar conta de família" : "Entrar"}</h2>
-          <form onSubmit={submit}>
-            <fieldset disabled={busy}>
-              {register && (
-                <Field
-                  label="Seu nome"
-                  name="name"
-                  autoComplete="name"
-                  minLength={2}
-                  maxLength={80}
-                  required
-                />
-              )}
-              <Field
-                label="E-mail"
-                type="email"
-                name="email"
-                autoComplete="email"
-                maxLength={254}
-                placeholder="voce@exemplo.com"
-                required
-              />
-              <Field
-                label="Senha"
-                name="password"
-                type="password"
-                autoComplete={register ? "new-password" : "current-password"}
-                minLength={register ? 12 : 1}
-                maxLength={128}
-                placeholder={
-                  register ? "Pelo menos 12 caracteres" : "Sua senha"
-                }
-                required
-              />
-              {register && (
-                <div className="consent-fields">
-                  <p>
-                    <button
-                      type="button"
-                      className="inline-link"
-                      onClick={() => go(base + "/privacidade")}
-                    >
-                      Ler os termos de uso e o aviso de privacidade
-                    </button>
-                  </p>
-                  <p className="small">
-                    Responsável: {notice?.controller || "carregando…"}. Versão{" "}
-                    {notice?.version || "…"}.
-                  </p>
-                  <label className="checkbox">
-                    <input name="consent" type="checkbox" required />
-                    <span>Li e aceito os termos de uso.</span>
-                  </label>
-                  <label className="checkbox">
-                    <input name="healthConsent" type="checkbox" required />
-                    <span>
-                      Autorizo o tratamento dos dados de saúde para organizar
-                      cadernetas, realizar a leitura automática e permitir a
-                      conferência pela equipe de saúde, conforme o aviso.
-                    </span>
-                  </label>
-                  <label className="checkbox">
-                    <input name="adultDeclaration" type="checkbox" required />
-                    <span>
-                      Tenho 18 anos ou mais. Cadastrarei apenas meus dados ou os
-                      de pessoas que posso legalmente representar.
-                    </span>
-                  </label>
-                  <p className="small muted">
-                    Os avisos no aparelho são opcionais. O atendimento pelo SUS
-                    não depende deste cadastro.
-                  </p>
-                </div>
-              )}
-              {error && (
-                <p className="form-error" role="alert">
-                  {error}
+          <h2>
+            {recovering
+              ? "Recuperar senha"
+              : register
+                ? "Criar conta de família"
+                : "Entrar"}
+          </h2>
+          {recovering ? (
+            <>
+              <p className="muted">
+                Peça um código à administração da unidade e digite-o abaixo.
+              </p>
+              <form onSubmit={resetPassword}>
+                <fieldset disabled={busy}>
+                  <Field
+                    label="Código de recuperação"
+                    name="code"
+                    autoComplete="one-time-code"
+                    spellCheck={false}
+                    autoCapitalize="none"
+                    minLength={43}
+                    maxLength={43}
+                    required
+                  />
+                  <Field
+                    label="Nova senha"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={12}
+                    maxLength={128}
+                    placeholder="Pelo menos 12 caracteres"
+                    required
+                  />
+                  <Field
+                    label="Confirme a nova senha"
+                    name="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={12}
+                    maxLength={128}
+                    required
+                  />
+                  {error && (
+                    <p className="form-error" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  <button className="primary full" type="submit">
+                    {busy ? "Salvando…" : "Alterar senha"}
+                  </button>
+                </fieldset>
+              </form>
+              <button
+                className="inline-link auth-back"
+                onClick={() => {
+                  setError("");
+                  go("/entrar");
+                }}
+              >
+                Voltar ao login
+              </button>
+            </>
+          ) : (
+            <>
+              {message && (
+                <p className="notice-box" role="status">
+                  {message}
                 </p>
               )}
-              <button
-                className="primary full"
-                type="submit"
-                disabled={register && !notice}
-              >
-                {busy
-                  ? "Aguarde…"
-                  : register
-                    ? "Criar minha conta"
-                    : "Entrar na minha conta"}
-                <ArrowRight size={18} />
-              </button>
-            </fieldset>
-          </form>
-          <p className="switch-auth">
-            {register ? "Já tem uma conta?" : "É sua primeira visita?"}{" "}
-            <button
-              className="inline-link"
-              onClick={() => {
-                go(register ? "/entrar" : "/criar-conta");
-                setError("");
-              }}
-            >
-              {register ? "Entrar" : "Criar conta de família"}
-            </button>
-          </p>
-          <p className="small muted">
-            Equipe de saúde: solicite sua conta ao administrador da unidade.
-          </p>
+              <form key={base} onSubmit={submit}>
+                <fieldset disabled={busy}>
+                  {register && (
+                    <Field
+                      label="Seu nome"
+                      name="name"
+                      autoComplete="name"
+                      minLength={2}
+                      maxLength={80}
+                      required
+                    />
+                  )}
+                  <Field
+                    label="E-mail"
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    maxLength={254}
+                    placeholder="voce@exemplo.com"
+                    required
+                  />
+                  <Field
+                    label="Senha"
+                    name="password"
+                    type="password"
+                    autoComplete={
+                      register ? "new-password" : "current-password"
+                    }
+                    minLength={register ? 12 : 1}
+                    maxLength={128}
+                    placeholder={
+                      register ? "Pelo menos 12 caracteres" : "Sua senha"
+                    }
+                    required
+                  />
+                  {!register && (
+                    <div className="auth-options">
+                      <label className="checkbox">
+                        <input name="remember" type="checkbox" />
+                        <span>Lembrar de mim</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="inline-link"
+                        onClick={() => {
+                          setError("");
+                          setMessage("");
+                          go("/entrar/esqueci-a-senha");
+                        }}
+                      >
+                        Esqueci a senha
+                      </button>
+                    </div>
+                  )}
+                  {register && (
+                    <div className="consent-fields">
+                      <p>
+                        <button
+                          type="button"
+                          className="inline-link"
+                          onClick={() => go(base + "/privacidade")}
+                        >
+                          Ler os termos de uso e o aviso de privacidade
+                        </button>
+                      </p>
+                      <p className="small">
+                        Responsável: {notice?.controller || "carregando…"}.
+                        Versão {notice?.version || "…"}.
+                      </p>
+                      <label className="checkbox">
+                        <input name="consent" type="checkbox" required />
+                        <span>Li e aceito os termos de uso.</span>
+                      </label>
+                      <label className="checkbox">
+                        <input name="healthConsent" type="checkbox" required />
+                        <span>
+                          Autorizo o tratamento dos dados de saúde para
+                          organizar cadernetas, realizar a leitura automática e
+                          permitir a conferência pela equipe de saúde, conforme
+                          o aviso.
+                        </span>
+                      </label>
+                      <label className="checkbox">
+                        <input
+                          name="adultDeclaration"
+                          type="checkbox"
+                          required
+                        />
+                        <span>
+                          Tenho 18 anos ou mais. Cadastrarei apenas meus dados
+                          ou os de pessoas que posso legalmente representar.
+                        </span>
+                      </label>
+                      <p className="small muted">
+                        Os avisos no aparelho são opcionais. O atendimento pelo
+                        SUS não depende deste cadastro.
+                      </p>
+                    </div>
+                  )}
+                  {error && (
+                    <p className="form-error" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  <button
+                    className="primary full"
+                    type="submit"
+                    disabled={register && !notice}
+                  >
+                    {busy
+                      ? "Aguarde…"
+                      : register
+                        ? "Criar minha conta"
+                        : "Entrar na minha conta"}
+                    <ArrowRight size={18} />
+                  </button>
+                </fieldset>
+              </form>
+              <p className="switch-auth">
+                {register ? "Já tem uma conta?" : "É sua primeira visita?"}{" "}
+                <button
+                  className="inline-link"
+                  onClick={() => {
+                    go(register ? "/entrar" : "/criar-conta");
+                    setError("");
+                  }}
+                >
+                  {register ? "Entrar" : "Criar conta de família"}
+                </button>
+              </p>
+              <p className="small muted">
+                Equipe de saúde: solicite sua conta ao administrador da unidade.
+              </p>
+            </>
+          )}
         </div>
         <footer>
           ImuniGuia{" "}

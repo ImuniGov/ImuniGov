@@ -50,3 +50,18 @@ export function vaccineLabel(name) {
   const key = name?.trim().toLowerCase();
   return Object.hasOwn(familiarNames, key) ? familiarNames[key] : name;
 }
+
+export function nextPendingByVaccine(items) {
+  const first = new Map();
+  for (const item of items) {
+    if (item.status !== "aberta") continue;
+    const key = item.vaccine.trim().normalize("NFC").toLowerCase();
+    const previous = first.get(key);
+    if (!previous || Number(item.dose) < Number(previous.dose)) {
+      first.set(key, item);
+    }
+  }
+  return [...first.values()].sort((a, b) =>
+    vaccineLabel(a.vaccine).localeCompare(vaccineLabel(b.vaccine), "pt-BR"),
+  );
+}

@@ -187,6 +187,8 @@ def main():
     user.add_argument("--email", required=True)
     user.add_argument("--name", required=True)
     user.add_argument("--role", choices=["familia", "ubs", "acs"], required=True)
+    reset = sub.add_parser("emit-reset-code")
+    reset.add_argument("--email", required=True)
     legacy = sub.add_parser("import-legacy")
     legacy.add_argument("directory")
     bind = sub.add_parser("bind-dependent")
@@ -197,6 +199,13 @@ def main():
     if args.action == "migrate":
         migrate()
         print("Migrações aplicadas.")
+    elif args.action == "emit-reset-code":
+        from .password_reset import issue_reset_code
+
+        try:
+            print(issue_reset_code(db.make_engine(), args.email))
+        except ValueError as error:
+            parser.error(str(error))
     elif args.action == "sync-sources":
         from .sources import sync_catalog
 

@@ -14,6 +14,7 @@ class Input(BaseModel):
 class Login(Input):
     email: str = Field(max_length=254)
     password: str = Field(min_length=1, max_length=128)
+    remember: bool = False
 
     @field_validator("email")
     @classmethod
@@ -31,6 +32,11 @@ class Register(Login):
     adultDeclaration: Literal[True]
     termsVersion: str = Field(min_length=1, max_length=80)
     privacyHash: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class ResetPassword(Input):
+    code: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+    password: str = Field(min_length=12, max_length=128)
 
 
 class Dependent(Input):

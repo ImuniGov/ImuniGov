@@ -72,6 +72,11 @@ sessions = table(
     text("csrf", nullable=False),
     Column("expires", Integer, nullable=False),
 )
+password_resets = table(
+    "password_resets",
+    text("user_id", ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False),
+    Column("expires", Integer, nullable=False),
+)
 attempts = table(
     "auth_attempts", Column("expires", Integer, nullable=False), Column("count", Integer, nullable=False)
 )

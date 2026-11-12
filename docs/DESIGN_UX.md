@@ -71,3 +71,5 @@ Lint, formatação, build e testes funcionais são registrados em KANBAN.md. A r
 - A tela do ACS explica a fila, a prioridade, as opções de contato e o registro de tentativas. A fila de cadernetas tem cartões em telas estreitas.
 
 A segunda revisão (K21.2) deixou resumo e ajuda recolhíveis, encurtou os filtros do calendário e os rótulos da UBS, trouxe a busca e os contatos do ACS para a primeira tela e reservou a cor de alerta para prioridades altas. Validação no Chrome em 320 e 390 px com dados fictícios.
+
+A revisão K21.3 separou as vacinas em Registradas, A conferir e Histórico. Registros cabem na largura do celular, e a grade de pendências mostra a menor dose aberta por vacina. A UBS abre a primeira caderneta disponível com Começar a conferir; decisões de outras cadernetas ficam bloqueadas até que a primeira deixe a fila do profissional. Resumo e instruções do início ficam no desktop.

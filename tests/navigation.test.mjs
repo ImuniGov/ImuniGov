@@ -1,3 +1,4 @@
+import { nextPendingByVaccine } from "../src/format.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { profilePath, profileRoute, profileSlug } from "../src/navigation.js";
@@ -62,4 +63,16 @@ test("avisos antigos continuam abrindo a tela de avisos", () => {
     profilePath(family, "notifications"),
     "/familia/agata-da-conceicao/avisos",
   );
+});
+
+test("mostra só a primeira dose aberta de cada vacina", () => {
+  const items = [
+    { vaccine: "Pneumocócica 10", dose: 2, status: "aberta" },
+    { vaccine: "Pneumocócica 10", dose: 1, status: "resolvida" },
+    { vaccine: "Pneumocócica 10", dose: 3, status: "aberta" },
+    { vaccine: "Pentavalente", dose: 3, status: "aberta" },
+    { vaccine: "pentavalente", dose: 1, status: "aberta" },
+  ];
+  assert.deepEqual(nextPendingByVaccine(items), [items[4], items[0]]);
+  assert.equal(items.length, 5);
 });

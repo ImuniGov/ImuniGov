@@ -82,8 +82,8 @@ O script `scripts/check_container.py` usa o banco Docker com schemas temporário
 
 Ferramentas: `python -m backend.backup --help` e `python -m backend.manage import-legacy DIRETORIO`.
 
-- `backend.backup create` exporta todas as 22 tabelas de negócio na versão de esquema `012`, valida a revisão Alembic (`012`) quando `alembic_version` está presente e grava no `manifest.json` a contagem de linhas, o hash do snapshot JSON e os hashes SHA-256 individuais de cada arquivo em `uploads/`.
-- `backend.backup restore` aceita destinos vazios ou recém-migrados (onde a migração `011` inseriu a linha inicial `review_gate(id='roster', revision=1)`), valida compatibilidade de `schema_version` (`001` ou `012`), revisão Alembic e colunas de cada tabela, restaura em transação única e remove quaisquer arquivos extraídos caso ocorra falha de integridade ou banco.
+- `backend.backup create` exporta todas as 22 tabelas de negócio na versão de esquema `013`, valida a revisão Alembic (`013`) quando `alembic_version` está presente e grava no `manifest.json` a contagem de linhas, o hash do snapshot JSON e os hashes SHA-256 individuais de cada arquivo em `uploads/`.
+- `backend.backup restore` aceita destinos vazios ou recém-migrados (onde a migração `011` inseriu a linha inicial `review_gate(id='roster', revision=1)`), valida compatibilidade de `schema_version` (`001`, `012` ou `013`), revisão Alembic e colunas de cada tabela, restaura em transação única e remove quaisquer arquivos extraídos caso ocorra falha de integridade ou banco.
 - Testes de importação legada verificam hashes e idempotência; dependentes importados ficam sem responsável até conferência administrativa e `bind-dependent`.
 - Diagrama entidade-relacionamento e decisões de modelagem: [MODELAGEM_DADOS.md](MODELAGEM_DADOS.md).
 
@@ -140,3 +140,15 @@ As alterações de equipe, atribuições e votos usam uma trava curta no banco, 
 A migração 011 preserva atribuições e votos como rodada 1. SQLite precisa reconstruir a restrição de unicidade das atribuições; apenas durante a migração Alembic a checagem de FKs é desativada, com `foreign_key_check` ao terminar e restauração da checagem antes de devolver a conexão. Fazer backup verificado e executar migrações sem versões antigas da aplicação atendendo requisições. No PostgreSQL a restrição é alterada transacionalmente.
 
 Referência técnica: [Alembic — migrações batch e chaves estrangeiras](https://alembic.sqlalchemy.org/en/latest/batch.html#dealing-with-referencing-foreign-keys).
+
+## Recuperação assistida de senha
+
+Após confirmar a titularidade da conta pelo procedimento da instituição, a administração emite um código com:
+
+```sh
+docker compose exec web python -m backend.manage emit-reset-code --email conta@exemplo.test
+```
+
+Entregue o código à pessoa titular por canal privado. Ela usa **Esqueci a senha** no login e define uma nova senha. O código vale por 30 minutos, tem uso único e substitui qualquer código anterior. A alteração encerra as sessões da conta e desativa as inscrições de avisos. Códigos de recuperação ficam fora do backup. Não há envio automático de e-mail.
+
+No login, **Lembrar de mim** mantém a sessão neste navegador por até sete dias. A sessão padrão expira em até oito horas e usa um cookie de sessão.
