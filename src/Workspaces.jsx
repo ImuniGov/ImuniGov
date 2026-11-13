@@ -21,51 +21,130 @@ import {
   vaccineLabel,
 } from "./format";
 
+const ACCEPTED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_QUEUE = 10;
+const queueLabels = {
+  aguardando: "Aguardando envio",
+  enviando: "Enviando…",
+  enviado: "Enviado",
+  erro: "Não enviado",
+};
+
 export function UploadForm({ people, selected, onClose, act, busy }) {
   const { names: vaccines } = useVaccineCatalog();
-  const [file, setFile] = useState(null),
-    [preview, setPreview] = useState(""),
+  const [items, setItems] = useState([]),
+    [running, setRunning] = useState(false),
+    [person, setPerson] = useState(selected || people[0]?.id || ""),
     [error, setError] = useState("");
+  const urls = useRef(new Set());
   useEffect(() => {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    Promise.resolve().then(() => setPreview(url));
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-  function choose(value) {
-    setError("");
-    if (
-      value &&
-      (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(
-        value.type,
-      ) ||
-        value.size > 10 * 1024 * 1024 ||
-        !value.size)
-    ) {
-      setError("Escolha JPG, PNG, WEBP ou PDF, até 10 MB.");
-      setFile(null);
-      setPreview("");
-      return;
-    }
-    setFile(value);
-    if (!value) setPreview("");
+    const created = urls.current;
+    return () => created.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+  function update(id, changes) {
+    setItems((list) =>
+      list.map((item) => (item.id === id ? { ...item, ...changes } : item)),
+    );
   }
+  function add(fileList) {
+    setError("");
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const valid = files.filter(
+      (f) =>
+        ACCEPTED_TYPES.includes(f.type) && f.size && f.size <= MAX_FILE_SIZE,
+    );
+    const room = MAX_QUEUE - items.length;
+    const accepted = valid.slice(0, Math.max(room, 0));
+    const problems = [];
+    if (valid.length < files.length)
+      problems.push(
+        `${files.length - valid.length} arquivo(s) ignorado(s): use JPG, PNG, WEBP ou PDF, até 10 MB.`,
+      );
+    if (accepted.length < valid.length)
+      problems.push(`Envie no máximo ${MAX_QUEUE} arquivos por vez.`);
+    if (problems.length) setError(problems.join(" "));
+    const added = accepted.map((file) => {
+      const preview = file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : "";
+      if (preview) urls.current.add(preview);
+      return {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        preview,
+        status: "aguardando",
+        error: "",
+      };
+    });
+    setItems((list) => [...list, ...added]);
+  }
+  function remove(item) {
+    if (item.preview) {
+      URL.revokeObjectURL(item.preview);
+      urls.current.delete(item.preview);
+    }
+    setItems((list) => list.filter((i) => i.id !== item.id));
+  }
+  const pending = items.filter((i) => i.status !== "enviado");
+  const sent = items.length - pending.length;
   async function submit(e) {
     e.preventDefault();
-    if (!file) {
-      setError("Escolha um arquivo para enviar.");
+    if (!pending.length) {
+      setError("Escolha ao menos um arquivo para enviar.");
       return;
     }
-    const form = new FormData(e.currentTarget);
-    form.set("file", file);
-    if (
-      await act(
-        () => api("/api/documents", { method: "POST", body: form }),
-        "Caderneta enviada. A UBS fará a conferência.",
-      )
-    )
-      onClose();
+    setError("");
+    const shared = new FormData(e.currentTarget);
+    const queue = pending.map((i) => i.id);
+    let failed = 0;
+    setRunning(true);
+    const allSent = await act(
+      async () => {
+        for (const id of queue) {
+          const item = items.find((i) => i.id === id);
+          update(id, { status: "enviando", error: "" });
+          const form = new FormData();
+          for (const [key, value] of shared.entries()) form.set(key, value);
+          form.set("file", item.file);
+          try {
+            await api("/api/documents", { method: "POST", body: form });
+            update(id, { status: "enviado" });
+          } catch (err) {
+            failed += 1;
+            update(id, {
+              status: "erro",
+              error: err.message || "Falha no envio.",
+            });
+          }
+        }
+        if (failed)
+          throw new Error(
+            `${failed} arquivo(s) não foram enviados. Confira a lista e tente de novo.`,
+          );
+      },
+      null,
+      false,
+    );
+    setRunning(false);
+    const total = queue.length - failed + sent;
+    await act(
+      async () => {},
+      allSent
+        ? total === 1
+          ? "Caderneta enviada. A UBS fará a conferência."
+          : `${total} arquivos enviados. A UBS fará a conferência.`
+        : null,
+    );
+    if (allSent) onClose();
   }
+  const locked = busy || running;
   return (
     <Modal title="Enviar caderneta" onClose={onClose}>
       {!people.length ? (
@@ -74,9 +153,15 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
         </Empty>
       ) : (
         <form onSubmit={submit}>
-          <fieldset disabled={busy}>
+          <fieldset disabled={locked}>
             <Field label="De quem é a caderneta?">
-              <select name="dependentId" defaultValue={selected} required>
+              <select
+                name="dependentId"
+                value={person}
+                onChange={(e) => setPerson(e.target.value)}
+                required
+                disabled={sent > 0}
+              >
                 {people.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -115,22 +200,27 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
-                choose(e.dataTransfer.files[0]);
+                if (!locked) add(e.dataTransfer.files);
               }}
             >
               <FileUp size={30} />
-              <strong>Foto ou PDF</strong>
+              <strong>Fotos ou PDFs</strong>
               <span>
-                JPG, PNG, WEBP ou PDF • até 10 MB • PDF com até 10 páginas
+                Até {MAX_QUEUE} arquivos • JPG, PNG, WEBP ou PDF • até 10 MB
+                cada • PDF com até 10 páginas
               </span>
               <div className="button-row">
                 <label className="secondary file-button">
-                  Selecionar arquivo
+                  Selecionar arquivos
                   <input
-                    aria-label="Selecionar caderneta"
+                    aria-label="Selecionar cadernetas"
                     type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={(e) => choose(e.target.files[0])}
+                    multiple
+                    accept={ACCEPTED_TYPES.join(",")}
+                    onChange={(e) => {
+                      add(e.target.files);
+                      e.target.value = "";
+                    }}
                   />
                 </label>
                 <label className="secondary file-button">
@@ -140,33 +230,66 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    onChange={(e) => choose(e.target.files[0])}
+                    onChange={(e) => {
+                      add(e.target.files);
+                      e.target.value = "";
+                    }}
                   />
                 </label>
               </div>
             </div>
-            {preview && (
-              <div className="file-preview">
-                <div>
-                  <strong>{file.name}</strong>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    onClick={() => choose(null)}
-                    aria-label="Remover arquivo"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                {file.type === "application/pdf" ? (
-                  <iframe title="Pré-visualização do PDF" src={preview} />
-                ) : (
-                  <img
-                    src={preview}
-                    alt="Pré-visualização da caderneta selecionada"
+            {items.length > 0 && (
+              <section className="upload-queue" aria-label="Fila de envio">
+                <header>
+                  <strong>
+                    {items.length === 1
+                      ? "1 arquivo na fila"
+                      : `${items.length} arquivos na fila`}
+                  </strong>
+                  <small>Os dados acima valem para todos os arquivos.</small>
+                </header>
+                {items.length > 1 && (
+                  <progress
+                    max={items.length}
+                    value={sent}
+                    aria-label={`${sent} de ${items.length} enviados`}
                   />
                 )}
-              </div>
+                <ol aria-live="polite">
+                  {items.map((item) => (
+                    <li key={item.id} className={`upload-item ${item.status}`}>
+                      {item.preview ? (
+                        <img src={item.preview} alt="" />
+                      ) : (
+                        <span className="upload-thumb" aria-hidden="true">
+                          PDF
+                        </span>
+                      )}
+                      <div>
+                        <strong>{item.file.name}</strong>
+                        <small>
+                          {queueLabels[item.status]}
+                          {item.error ? ` — ${item.error}` : ""}
+                        </small>
+                      </div>
+                      {item.status === "aguardando" ||
+                      item.status === "erro" ? (
+                        <button
+                          className="icon-button"
+                          type="button"
+                          onClick={() => remove(item)}
+                          aria-label={`Remover ${item.file.name}`}
+                        >
+                          <X size={18} />
+                        </button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+            {sent > 0 && (
+              <input type="hidden" name="dependentId" value={person} />
             )}
             {error && (
               <p className="form-error" role="alert">
@@ -175,10 +298,20 @@ export function UploadForm({ people, selected, onClose, act, busy }) {
             )}
             <div className="modal-actions">
               <button type="button" className="secondary" onClick={onClose}>
-                Cancelar
+                {sent > 0 ? "Fechar" : "Cancelar"}
               </button>
-              <button className="primary" type="submit" disabled={!file}>
-                {busy ? "Enviando…" : "Confirmar envio"}
+              <button
+                className="primary"
+                type="submit"
+                disabled={!pending.length}
+              >
+                {running
+                  ? "Enviando…"
+                  : items.some((i) => i.status === "erro")
+                    ? "Tentar enviar de novo"
+                    : pending.length > 1
+                      ? `Enviar ${pending.length} arquivos`
+                      : "Confirmar envio"}
               </button>
             </div>
           </fieldset>
@@ -195,9 +328,10 @@ const reviewSteps = [
   ["historico", "Histórico"],
 ];
 
-function ReviewDecision({ options, onSubmit, busy, record = false }) {
+function ReviewDecision({ options, onSubmit, busy, record = false, summary }) {
   const [decision, setDecision] = useState("");
   const refused = decision === "rejeitado" || decision === "recusado";
+  const chosen = options.find(([value]) => value === decision);
   return (
     <form
       className="review-decision"
@@ -208,20 +342,32 @@ function ReviewDecision({ options, onSubmit, busy, record = false }) {
       }}
     >
       <fieldset disabled={busy}>
-        <Field label="Sua decisão">
-          <select
-            required
-            value={decision}
-            onChange={(event) => setDecision(event.target.value)}
-          >
-            <option value="">Selecione</option>
-            {options.map(([value, label, disabled]) => (
-              <option key={value} value={value} disabled={disabled}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <legend>Sua decisão</legend>
+        <div className="decision-options">
+          {options.map(([value, label, disabled, hint]) => {
+            const negative = value === "rejeitado" || value === "recusado";
+            return (
+              <label
+                key={value}
+                className={`decision-option${negative ? " negative" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="decision"
+                  value={value}
+                  required
+                  disabled={disabled}
+                  checked={decision === value}
+                  onChange={() => setDecision(value)}
+                />
+                <span>
+                  <strong>{label}</strong>
+                  {hint && <small>{hint}</small>}
+                </span>
+              </label>
+            );
+          })}
+        </div>
         {decision && (
           <>
             <Field
@@ -252,10 +398,22 @@ function ReviewDecision({ options, onSubmit, busy, record = false }) {
                 maxLength={500}
               />
             </Field>
+            {summary && (
+              <div className={`decision-summary${refused ? " negative" : ""}`}>
+                <small>
+                  {refused ? "Você vai recusar" : "Você vai confirmar"}
+                </small>
+                <strong>{summary}</strong>
+              </div>
+            )}
           </>
         )}
-        <button className="primary" type="submit" disabled={!decision}>
-          {busy ? "Salvando…" : "Registrar decisão"}
+        <button
+          className={refused ? "danger" : "primary"}
+          type="submit"
+          disabled={!decision}
+        >
+          {busy ? "Salvando…" : chosen ? chosen[1] : "Escolha uma opção"}
         </button>
       </fieldset>
     </form>
@@ -589,8 +747,18 @@ export function DocumentReview({
           <ReviewDecision
             key={current.review?.round}
             options={[
-              ["aprovado", "Aprovar o arquivo"],
-              ["rejeitado", "Devolver para ajuste"],
+              [
+                "aprovado",
+                "Aprovar o arquivo",
+                false,
+                "O arquivo está legível e é da pessoa certa.",
+              ],
+              [
+                "rejeitado",
+                "Devolver para ajuste",
+                false,
+                "A família precisa enviar outro arquivo.",
+              ],
             ]}
             onSubmit={decide}
             busy={!canSubmit}
@@ -620,31 +788,79 @@ export function DocumentReview({
             ? "Confira cada dose separadamente."
             : "A UBS confere cada dose."}
         </p>
+        {records.length > 0 && (
+          <p className="dose-progress" role="status">
+            <strong>
+              {records.filter((r) => r.status !== "a_conferir").length} de{" "}
+              {records.length}
+            </strong>{" "}
+            {records.length === 1 ? "dose conferida" : "doses conferidas"}
+            {user.role === "ubs" &&
+              ` • ${records.filter((r) => r.review?.myVote).length} com seu voto`}
+          </p>
+        )}
+        {guided &&
+          !readOnly &&
+          user.role === "ubs" &&
+          current.status === "pendente" &&
+          records.some((r) => r.status === "a_conferir") && (
+            <div className="notice-box">
+              <strong>Aprove o arquivo antes de confirmar doses</strong>
+              <p>
+                Você já pode recusar um registro. A confirmação fica liberada
+                quando o arquivo for aprovado pelos três revisores.
+              </p>
+              <button
+                type="button"
+                className="text-link"
+                onClick={() => move(1)}
+              >
+                Ir para a decisão do arquivo
+              </button>
+            </div>
+          )}
         {records.length ? (
           records.map((r) => (
-            <article className="record-card" key={r.id}>
-              <div>
+            <article className="record-card dose-card" key={r.id}>
+              <header>
                 <strong>
                   {vaccineLabel(r.vaccine)} • Dose {r.dose}
                 </strong>
-                <small>
-                  {formatDate(r.dose_date)} •{" "}
-                  {r.origin === "ocr"
-                    ? "Leitura automática"
-                    : "Digitada pela equipe"}
-                  {r.confidence
-                    ? ` • Leitura automática: ${r.confidence}%`
-                    : ""}
-                </small>
-              </div>
-              <Badge status={r.status} />
-              {r.review_note && <p>{r.review_note}</p>}
+                <Badge status={r.status} />
+              </header>
+              <dl className="dose-facts">
+                <div>
+                  <dt>Data da dose</dt>
+                  <dd>{formatDate(r.dose_date)}</dd>
+                </div>
+                <div>
+                  <dt>Origem</dt>
+                  <dd>
+                    {r.origin === "ocr"
+                      ? "Leitura automática"
+                      : "Digitada pela equipe"}
+                  </dd>
+                </div>
+                {r.confidence ? (
+                  <div>
+                    <dt>Confiança da leitura</dt>
+                    <dd>{r.confidence}%</dd>
+                  </div>
+                ) : null}
+              </dl>
+              {r.review_note && (
+                <p>
+                  <strong>Motivo:</strong> {r.review_note}
+                </p>
+              )}
               {r.review_guidance && (
                 <p>
                   <strong>O que fazer:</strong> {r.review_guidance}
                 </p>
               )}
-              {r.review?.myVote && <p>Seu voto está registrado.</p>}
+              {r.review?.myVote && (
+                <p className="review-state">Seu voto está registrado.</p>
+              )}
               {guided &&
                 !readOnly &&
                 current.status !== "rejeitado" &&
@@ -657,21 +873,25 @@ export function DocumentReview({
                     path={[...wizardPath, "doses", "conferir-dose", r.id]}
                     title="Conferir esta dose"
                   >
-                    {current.status !== "aprovado" && (
-                      <p className="small muted">
-                        Confirme a dose após a aprovação do arquivo.
-                      </p>
-                    )}
                     <ReviewDecision
                       record
                       key={current.review?.round}
+                      summary={`${vaccineLabel(r.vaccine)} • Dose ${r.dose} • ${formatDate(r.dose_date)}`}
                       options={[
                         [
                           "validado",
                           "Confirmar dose",
                           current.status !== "aprovado",
+                          current.status !== "aprovado"
+                            ? "Disponível depois que o arquivo for aprovado."
+                            : "A data e a vacina conferem com o arquivo.",
                         ],
-                        ["recusado", "Recusar registro"],
+                        [
+                          "recusado",
+                          "Recusar registro",
+                          false,
+                          "Algo não confere; a família recebe a orientação.",
+                        ],
                       ]}
                       onSubmit={(decision, note, guidance) =>
                         recordDecision(r, decision, note, guidance)

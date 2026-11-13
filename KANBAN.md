@@ -1,6 +1,10 @@
 # Kanban do ImuniGuia
 
-Atualizado: 2026-11-11 (America/Cuiaba). Branch: **homologacao**. **Desenvolvimento retomado por solicitação explícita do usuário.**
+Atualizado: 2026-11-13 (America/Cuiaba). Branch: **homologacao**. **Desenvolvimento retomado por solicitação explícita do usuário.**
+
+## Execução ativa — 2026-11-13
+
+- **K21.4 · #43 e #48 (Em revisão em 2026-11-13):** Pedido da equipe (Ryan): upload de arquivo em fila e layout da confirmação de vacina pela UBS. Responsável: mantenedor com Claude. Dependências: nenhuma nova; `POST /api/documents` e regras de voto inalterados. Critérios: (1) família escolhe até 10 fotos/PDFs da mesma pessoa, enviados um por vez com status por arquivo (aguardando, enviando, enviado, não enviado), falha isolada sem perder os demais e opção de reenviar só os que falharam, pessoa travada após o primeiro envio; (2) UBS decide com opções de toque (≥44px) com explicação, dose resumida antes de salvar, botão com o nome da ação, progresso de doses conferidas e aviso de que confirmar dose exige arquivo aprovado (recusa continua disponível). Implementado em `src/Workspaces.jsx` (`UploadForm`, `ReviewDecision`, cartões de dose) e `src/styles.css`. Evidência: 56 testes Python aprovados; testes de rotas e PWA, lint, Prettier e build aprovados. Chrome headless a 390 e 1100 px com API simulada e dados fictícios: fila com 3 arquivos e falha simulada (429) no 2º, demais enviados; decisão de dose aprovada/pendente e recusa. Não executado: teste com backend real e aparelhos físicos. Próximo passo: validação pela equipe na homologação. Sincronização com Issues e Projects pendente.
 
 ## Execução ativa — 2026-11-11
 
@@ -87,6 +91,8 @@ CI do estado salvo em **92f75f9**: [execução 42558280959](https://github.com/I
 | 2026-11-11 | K21.2 (#43, #48) em revisão | Segunda revisão mobile após os prints: menos texto no primeiro acesso, ações com mais espaço e filtros curtos. Chrome 320/390 px e testes de frontend aprovados. |
 
 | 2026-11-11 | K21.3 (#3, #13, #43, #48) em revisão | Vacinas sem rolagem horizontal, dose inicial por vacina, fila UBS obrigatória e recuperação assistida validadas com dados sintéticos. |
+
+| 2026-11-13 | K21.4 (#43, #48) em revisão | Upload em fila (até 10 arquivos, status por item, reenvio só das falhas) e nova confirmação de dose da UBS com opções de toque, resumo e progresso. Testes, lint e build aprovados; Chrome 390/1100 px com API simulada. |
 
 <details>
 <summary>Histórico do quadro anterior — estados abaixo substituídos pela auditoria acima</summary>
