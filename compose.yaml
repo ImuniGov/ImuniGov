@@ -1,0 +1,68 @@
+name: imuniguia-homologacao
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: imuniguia
+      POSTGRES_USER: imuniguia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U imuniguia -d imuniguia"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+  migrate:
+    build: .
+    image: imuniguia:homologacao
+    command: ["python", "-m", "backend.manage", "migrate"]
+    environment: &app-env
+      DATABASE_URL: postgresql+psycopg://imuniguia:${POSTGRES_PASSWORD}@postgres:5432/imuniguia
+      IMUNIGUI_DATA_DIR: /data
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:4173}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Cuiaba}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-https://localhost}
+    volumes: &app-volumes
+      - uploads-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+  web:
+    image: imuniguia:homologacao
+    pull_policy: never
+    environment: *app-env
+    volumes: *app-volumes
+    ports:
+      - "127.0.0.1:4173:4173"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4173/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
+  worker:
+    image: imuniguia:homologacao
+    pull_policy: never
+    command: ["python", "-m", "backend.worker"]
+    environment: *app-env
+    volumes: *app-volumes
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  postgres-data:
+  uploads-data:

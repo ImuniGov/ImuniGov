@@ -1,0 +1,59 @@
+{
+  "version": "2026-11-08.2",
+  "title": "Termos de uso e aviso de privacidade do ImuniGuia",
+  "controller": "ImuniGuia",
+  "contact": "example@unemat.bbr",
+  "summary": "Leia antes de criar sua conta. Você decide se deseja usar este acompanhamento digital. O atendimento e a vacinação pelo SUS não dependem do aceite deste aplicativo.",
+  "sections": [
+    {
+      "title": "1. Quem responde pelos dados",
+      "text": "O ImuniGuia é o responsável por esta instalação e pelo atendimento aos titulares. Canal de privacidade: example@unemat.bbr. A equipe responsável pela implantação deve manter este canal acessível e informar qualquer mudança neste aviso."
+    },
+    {
+      "title": "2. Para que serve e limites de uso",
+      "text": "O aplicativo organiza cadernetas da família, recebe fotos e PDFs, auxilia a leitura dos registros, permite conferência por profissionais da UBS, apresenta orientações, próximas datas e acompanhamento pelo ACS. A leitura automática pode errar: só registros conferidos são confirmados. Datas e avisos apoiam o cuidado e precisam da avaliação da equipe, especialmente em atrasos, contraindicações e condições especiais. O aplicativo não substitui consulta, caderneta original nem atendimento de urgência. Não há garantia de entrega de notificações."
+    },
+    {
+      "title": "3. Quais dados usamos",
+      "text": "Usamos nome e e-mail da conta, senha protegida por hash, nome e nascimento de cada familiar, imagens e PDFs enviados, texto extraído por OCR, registros de vacinação, motivos de recusa, orientações, datas planejadas e contatos de acompanhamento. Também registramos autor, horário e ações de conferência e aceite, identificadores de sessão e, se você ativar avisos no dispositivo, o endereço técnico e as chaves da inscrição de notificações. Evite enviar documentos ou informações além do necessário para a vacinação."
+    },
+    {
+      "title": "4. Autorização específica para dados de saúde",
+      "text": "Para o acompanhamento digital voluntário da família, solicitamos seu consentimento específico e destacado para armazenar e ler as cadernetas, extrair seu texto no servidor, organizar registros e pendências e disponibilizar essas informações aos profissionais autorizados descritos abaixo. Dados de saúde são dados pessoais sensíveis; esta autorização corresponde ao art. 11, I, da LGPD. Não autoriza venda de dados, publicidade, treinamento de modelos de inteligência artificial nem usos incompatíveis. Procedimentos de saúde e deveres legais que tenham outra base legal não se tornam dependentes deste consentimento; o serviço responsável deve informar a base aplicável a cada finalidade."
+    },
+    {
+      "title": "5. Familiares, crianças e adolescentes",
+      "text": "A conta deve ser criada por pessoa maior de 18 anos. Cadastre seus próprios dados ou os de pessoa que você pode legalmente representar. Para outros adultos, obtenha autorização ou solicite que tenham conta própria. Ao cadastrar crianças ou adolescentes, declare ser responsável legal e agir em seu melhor interesse. A equipe pode solicitar comprovação do vínculo antes da conferência. Uma simples declaração no aplicativo não substitui essa verificação. Quando o fundamento for consentimento de criança, ele deve ser específico, destacado e dado por pelo menos um dos pais ou responsável, observando o art. 14 da LGPD. Não envie dados de pessoas que você não está autorizado a representar."
+    },
+    {
+      "title": "6. Quem acessa e compartilhamento",
+      "text": "A família acessa seus próprios vínculos. Cada caderneta é atribuída por sorteio a três profissionais habilitados da UBS, com restrições geográficas entre nascimento e trabalho; esses profissionais podem atuar em outras localidades. Cada um confere o arquivo e os registros de modo independente. A distribuição geográfica não comprova ausência de vínculo pessoal e exige declaração de independência. O ACS recebe identificação, contato e motivos necessários para busca ativa, sem acesso ao arquivo da caderneta. Administradores e operadores de infraestrutura podem acessar o necessário para suporte, segurança, obrigações legais e exercício de direitos, sob controle do responsável. Se ativadas, notificações externas usam o serviço do navegador/dispositivo e transportam aviso genérico, sem nomes ou detalhes de saúde. Consultas aos catálogos públicos do governo não enviam dados dos familiares. Esta instalação não consulta automaticamente o histórico pessoal na RNDS."
+    },
+    {
+      "title": "7. Conservação e segurança",
+      "text": "Os dados são conservados enquanto necessários ao acompanhamento e às finalidades informadas. Após encerramento ou revogação, o responsável deve eliminar ou anonimizar o que não precisar conservar por obrigação legal, exercício de direitos ou outra hipótese do art. 16 da LGPD, informando a justificativa de eventual retenção. O sistema mantém histórico de decisões e auditoria e não apaga registros clínicos automaticamente: pedidos exigem análise do responsável, incluindo cópias de segurança. São aplicados controle de acesso, sessões protegidas, armazenamento privado dos arquivos e registro das ações. Nenhum sistema elimina todo risco. Incidentes serão avaliados e comunicados conforme as obrigações legais aplicáveis."
+    },
+    {
+      "title": "8. Seus direitos e como pedir",
+      "text": "Você pode pedir confirmação do tratamento, acesso, correção, informação sobre compartilhamentos, anonimização, bloqueio ou eliminação de dados desnecessários ou tratados irregularmente, portabilidade conforme regulamentação e revogação do consentimento, além de solicitar eliminação de dados tratados por consentimento, ressalvadas as hipóteses legais de conservação. Exporte uma cópia dos dados na área Minha conta. Para outros pedidos, escreva ao canal de privacidade ou registre uma solicitação nessa área; não inclua documentos sensíveis no primeiro contato. O responsável pode verificar sua identidade com o mínimo de dados. Revogar não torna ilícito o tratamento anterior e pode impedir as funções digitais que dependem dessa autorização. Você pode procurar a ANPD e os órgãos de defesa competentes. O aceite não implica renúncia a direitos."
+    },
+    {
+      "title": "9. Conta e avisos opcionais",
+      "text": "Proteja sua senha, não compartilhe o acesso e forneça informações corretas. Comunique acesso indevido. Avisos no navegador são opcionais, separados do cadastro e podem ser desativados na conta ou nas configurações do dispositivo. Recusar avisos externos não impede consultar a agenda no aplicativo."
+    },
+    {
+      "title": "10. Aceite e alterações",
+      "text": "Os termos de uso e a autorização específica para dados de saúde têm caixas separadas, inicialmente desmarcadas. Registramos a versão, o resumo criptográfico do texto, o identificador da conta e a data e hora do aceite. Você pode reler o texto na conta. Mudanças materiais de finalidade ou de autorização serão informadas e dependerão de novo aceite quando necessário. Não use esta versão para finalidades diferentes das descritas."
+    }
+  ],
+  "sources": [
+    {
+      "title": "LGPD — Lei 13.709/2018, texto atualizado",
+      "url": "https://www2.camara.leg.br/legin/fed/lei/2018/lei-13709-14-agosto-2018-787077-normaatualizada-pl.html"
+    },
+    {
+      "title": "ANPD — Enunciado 1/2023: crianças e adolescentes",
+      "url": "https://www.gov.br/anpd/pt-br/assuntos/noticias/anpd-divulga-enunciado-sobre-o-tratamento-de-dados-pessoais-de-criancas-e-adolescentes"
+    }
+  ]
+}

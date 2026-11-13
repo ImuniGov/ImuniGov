@@ -1,0 +1,31 @@
+{
+  "version": "PNI-2026-INFANTIL-ROTINA-v2",
+  "source": "https://www.gov.br/saude/pt-br/vacinacao/publicacoes/instrucao-normativa-que-instrui-o-calendario-nacional-de-vacinacao-2026.pdf/@@download/file",
+  "valid_from": "2026-01-01",
+  "valid_until": "2026-12-31",
+  "rules": [
+    {"id":"bcg-1","vaccine":"BCG","dose":1,"due_months":0,"min_months":0,"max_months":60},
+    {"id":"hepb-1","vaccine":"Hepatite B","dose":1,"due_months":0,"min_months":0,"max_months":1},
+    {"id":"penta-1","vaccine":"Pentavalente","dose":1,"due_months":2,"min_months":0,"min_age_days":45,"max_months":84},
+    {"id":"penta-2","vaccine":"Pentavalente","dose":2,"due_months":4,"min_months":0,"min_age_days":75,"max_months":84,"min_interval_days":30},
+    {"id":"penta-3","vaccine":"Pentavalente","dose":3,"due_months":6,"min_months":6,"max_months":84,"min_interval_days":30,"min_from_first_months":4},
+    {"id":"vip-1","vaccine":"Poliomielite VIP","dose":1,"due_months":2,"min_months":0,"min_age_days":45,"max_months":60},
+    {"id":"vip-2","vaccine":"Poliomielite VIP","dose":2,"due_months":4,"min_months":0,"min_age_days":75,"max_months":60,"min_interval_days":30},
+    {"id":"vip-3","vaccine":"Poliomielite VIP","dose":3,"due_months":6,"min_months":0,"min_age_days":105,"max_months":60,"min_interval_days":30},
+    {"id":"vip-4","vaccine":"Poliomielite VIP","dose":4,"due_months":15,"min_months":0,"max_months":60,"min_interval_months":6},
+    {"id":"vip-5","vaccine":"Poliomielite VIP","dose":5,"due_months":48,"min_months":0,"max_months":60,"min_interval_months":6},
+    {"id":"vpc10-1","vaccine":"Pneumocócica 10","dose":1,"due_months":2,"min_months":0,"min_age_days":45,"max_months":60},
+    {"id":"vpc10-2","vaccine":"Pneumocócica 10","dose":2,"due_months":4,"min_months":0,"min_age_days":75,"max_months":60,"min_interval_days":30},
+    {"id":"vpc10-3","vaccine":"Pneumocócica 10","dose":3,"due_months":12,"min_months":12,"max_months":60,"min_interval_days":60},
+    {"id":"vorh-1","vaccine":"Rotavírus humano","dose":1,"due_months":2,"min_months":1,"min_age_days":45,"max_months":4},
+    {"id":"vorh-2","vaccine":"Rotavírus humano","dose":2,"due_months":4,"min_months":3,"min_age_days":95,"max_months":8,"min_interval_days":30},
+    {"id":"menc-1","vaccine":"Meningocócica C","dose":1,"due_months":3,"min_months":0,"min_age_days":60,"max_months":60},
+    {"id":"menc-2","vaccine":"Meningocócica C","dose":2,"due_months":5,"min_months":0,"min_age_days":90,"max_months":60,"min_interval_days":30},
+    {"id":"menc-3","vaccine":"Meningocócica C","dose":3,"due_months":12,"min_months":12,"max_months":60,"min_interval_days":60},
+    {"id":"vfa-1","vaccine":"Febre amarela","dose":1,"due_months":9,"min_months":6,"max_months":60},
+    {"id":"vfa-2","vaccine":"Febre amarela","dose":2,"due_months":48,"min_months":48,"max_months":60,"min_interval_days":30},
+    {"id":"scr-1","vaccine":"Tríplice viral","dose":1,"due_months":12,"min_months":12,"max_months":60},
+    {"id":"scr-2","vaccine":"Tríplice viral","dose":2,"due_months":15,"min_months":15,"max_months":60,"min_interval_days":30},
+    {"id":"hepa-1","vaccine":"Hepatite A","dose":1,"due_months":15,"min_months":12,"max_months":60}
+  ]
+}

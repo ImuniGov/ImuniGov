@@ -1,0 +1,55 @@
+name: Qualidade e integração
+on:
+  push:
+    branches: [main, teste, homologacao]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:pwa
+      - run: npm run test:routes
+      - run: npm run build
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-por poppler-utils fonts-dejavu-core
+      - run: ruff check backend tests scripts/check_container.py
+      - run: ruff format --check backend tests scripts/check_container.py
+      - run: python -m pytest -q
+        env:
+          REQUIRE_OCR: '1'
+  docker-postgres:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar configuração efêmera
+        run: python -c "import secrets,pathlib; pathlib.Path('.env').write_text('POSTGRES_PASSWORD='+secrets.token_hex(32)+'\nPUBLIC_ORIGIN=http://localhost:4173\n')"
+      - run: docker compose up --build -d --wait --wait-timeout 180
+      - name: Testar PostgreSQL e OCR real em ambiente isolado
+        run: docker compose run --rm --no-deps -e REQUIRE_OCR=1 -v "$PWD/tests:/app/tests:ro" -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/pyproject.toml:/app/pyproject.toml:ro" web python scripts/check_container.py
+      - name: Verificar saúde
+        run: curl --fail http://localhost:4173/api/health
+      - name: Logs de falha sem conteúdo clínico
+        if: failure()
+        run: docker compose logs --tail 80 web worker migrate
+      - name: Encerrar containers efêmeros
+        if: always()
+        run: docker compose down
